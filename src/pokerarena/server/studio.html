@@ -1,0 +1,2022 @@
+<style>
+:root {
+  color-scheme: dark;
+  /* The real visible height. `dvh` is the baseline and JS overwrites it with
+     the exact figure from visualViewport — older Safari has no `dvh`, and on
+     mobile `vh` lies. */
+  --app-h: 100vh; --app-h: 100dvh;
+  --bg: #0e1116; --panel: #161b22; --panel2: #1c232c; --line: #2b333d;
+  --fg: #e6edf3; --dim: #8b97a5; --accent: #4f9dff; --good: #3fb950;
+  --bad: #f85149; --warn: #d29922; --felt: #17342a; --felt2: #0f241d;
+}
+:root.light {
+  color-scheme: light;
+  --bg: #f5f7fa; --panel: #ffffff; --panel2: #eef2f6; --line: #d3dae2;
+  --fg: #1c2128; --dim: #5b6672; --accent: #0969da; --good: #1a7f37;
+  --bad: #cf222e; --warn: #9a6700; --felt: #1f5344; --felt2: #163b30;
+}
+/* A middle setting: in the evening black is too dark, but white burns. This
+   is a lighter grey-blue — still muted, not paper. */
+:root.dim {
+  color-scheme: dark;
+  --bg: #2a3038; --panel: #333a44; --panel2: #3d454f; --line: #4d5661;
+  --fg: #eef2f6; --dim: #a9b4c0; --accent: #6fb2ff; --good: #56c96a;
+  --bad: #ff7b72; --warn: #e3b341; --felt: #24564a; --felt2: #1a3e34;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+header {
+  display: flex; align-items: center; gap: 16px; padding: 10px 16px;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 10;
+}
+header h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+header .meta { color: var(--dim); font-size: 12px; }
+.spacer { flex: 1; }
+button, select, input {
+  background: var(--panel2); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 5px 9px; font: inherit; font-size: 13px;
+}
+button { cursor: pointer; }
+button:hover { border-color: var(--accent); }
+/* Deliberately the header only: applied to every button.on it would override
+   the decision badge and put blue text on a blue background. */
+.tabs button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tabs { display: flex; gap: 6px; }
+@media (max-width: 900px) { }
+
+/* ---- seznam hands ---- */
+aside { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.filters .row { display: flex; gap: 6px; }
+.hand {
+  padding: 8px 10px; border-bottom: 1px solid var(--line); cursor: pointer;
+  display: grid; grid-template-columns: 1fr auto; gap: 2px 8px;
+}
+.hand:hover { background: var(--panel2); }
+.hand.sel { background: var(--panel2); box-shadow: inset 3px 0 0 var(--accent); }
+.hand .id { font-variant-numeric: tabular-nums; color: var(--dim); font-size: 11px; }
+.hand .res { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 12px; }
+.hand .time { font-variant-numeric: tabular-nums; color: var(--dim); font-size: 11px; }
+.hand .tags { grid-column: 1 / -1; display: flex; gap: 4px; flex-wrap: wrap; }
+.tag {
+  font-size: 10px; padding: 1px 5px; border-radius: 4px;
+  background: var(--panel2); color: var(--dim); border: 1px solid var(--line);
+}
+.tag.llm { color: var(--accent); border-color: var(--accent); }
+.tag.fb { color: var(--warn); border-color: var(--warn); }
+.pos { font-weight: 600; }
+.win { color: var(--good); } .loss { color: var(--bad); }
+
+/* ---- the stage ---- */
+.stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.felt-wrap { padding: 14px; }
+.felt {
+  position: relative; aspect-ratio: 16 / 8; max-height: 340px; margin: 0 auto;
+  max-width: 720px; border-radius: 50% / 50%;
+  background: radial-gradient(ellipse at 50% 45%, var(--felt), var(--felt2));
+  border: 6px solid #23303a;
+}
+.middle {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  text-align: center; display: grid; gap: 6px; justify-items: center;
+}
+.board { display: flex; gap: 4px; min-height: 40px; }
+.pot { font-size: 13px; color: #cfe6dc; font-variant-numeric: tabular-nums; }
+.card {
+  width: 28px; height: 40px; border-radius: 4px; background: #fbfcfd; color: #11161c;
+  display: grid; place-items: center; font-weight: 700; font-size: 15px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.5); line-height: 1;
+}
+.card.small { width: 22px; height: 31px; font-size: 12px; }
+.card.red { color: #cf222e; } .card.blue { color: #0969da; } .card.green { color: #1a7f37; }
+.seat {
+  position: absolute; transform: translate(-50%, -50%); width: 116px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 5px 6px; text-align: center; font-size: 11px;
+}
+.seat.hero { border-color: var(--accent); }
+.seat.folded { opacity: .38; }
+.seat.acting { box-shadow: 0 0 0 2px var(--accent); }
+.seat-avatar {
+  width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
+  margin: 0 auto 3px; display: block; border: 1.5px solid rgba(255,255,255,0.2);
+  background: #111;
+}
+.seat.hero .seat-avatar { border-color: var(--accent); }
+.seatlink .who { display: flex; align-items: center; gap: 6px; justify-content: center; }
+.seatlink-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+.seat .who { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seat .stack { color: var(--dim); font-variant-numeric: tabular-nums; }
+.seat .cards { display: flex; gap: 3px; justify-content: center; margin-top: 3px; }
+/* A player's last action, right next to them. The colour carries meaning: a
+   fold greys out, aggression lights up, a passive move stays neutral. */
+.seat .act {
+  margin-top: 2px; font-weight: 600; font-size: 10px; letter-spacing: .02em;
+  text-transform: uppercase; color: var(--dim);
+}
+.seat .act.raise, .seat .act.bet { color: var(--warn); }
+.seat .act.call, .seat .act.check { color: var(--fg); }
+.seat .act.fold { color: var(--dim); opacity: .7; }
+/* A fresh action flashes briefly, so it is clear who just played. */
+.seat .act.now { animation: actpop 1.1s ease-out; }
+@keyframes actpop {
+  0% { transform: scale(1.35); filter: brightness(1.9); }
+  60% { transform: scale(1); filter: brightness(1.15); }
+  100% { transform: scale(1); filter: none; }
+}
+.seat .bet {
+  margin-top: 3px; font-variant-numeric: tabular-nums; color: var(--warn); font-weight: 600;
+}
+
+/* ---- stepping through ---- */
+.controls {
+  display: flex; align-items: center; gap: 8px; padding: 0 14px 10px;
+  flex-wrap: wrap;
+}
+.controls input[type=range] { flex: 1; min-width: 140px; accent-color: var(--accent); }
+.now { font-variant-numeric: tabular-nums; color: var(--dim); font-size: 12px; min-width: 190px; }
+.decisions { display: flex; gap: 6px; padding: 0 14px 10px; flex-wrap: wrap; }
+.dec {
+  font-size: 12px; padding: 3px 8px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel2); color: var(--fg);
+}
+.dec.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.dec.fb { border-color: var(--warn); }
+/* Simulation: a matching decision is quiet information, a differing one is
+   the interesting case. */
+.dec.sim-same { border-style: dashed; }
+.dec.sim-diff { border-style: dashed; border-color: var(--accent); font-weight: 600; }
+/* Past the first divergence from reality: the spot is real, but it would not
+   have arisen in the model's own game. */
+.dec.sim-branch::before { content: "\2442\00a0"; opacity: .75; }
+.notes { padding: 0 14px 8px; color: var(--warn); font-size: 12px; }
+iframe.panel { flex: 1; width: 100%; border: 0; border-top: 1px solid var(--line); min-height: 320px; }
+
+/* ---- the live table ---- */
+/* `minmax(0, …)` is required: without it the column stretches to its widest
+   child and on a phone the whole page slides off to the right. */
+#view-table {
+  display: grid; grid-template-columns: minmax(0, 1fr) 380px;
+  height: calc(100vh - 49px);
+}
+@media (max-width: 1000px) {
+  #view-table { grid-template-columns: minmax(0, 1fr); height: auto; }
+}
+
+.table-stage { display: flex; flex-direction: column; min-width: 0; padding-top: 6px; }
+.table-side {
+  border-left: 1px solid var(--line); padding: 12px 14px; overflow-y: auto;
+  min-width: 0;                        /* or the column stretches the page */
+}
+.setup-head { cursor: pointer; font-weight: 600; font-size: 14px; padding: 4px 0; }
+.felt.live { max-height: 430px; max-width: 820px; }
+/* The hero sits bottom centre, as in every client — so the seats are rotated
+   until their index lands at six o'clock. */
+.seat .pos { color: var(--dim); font-weight: 600; }
+/* Whose turn it is has to read across the whole table at a glance — with six
+   seats a thin border was lost, especially on a phone. So it pulses, glows and
+   grows a little, while the other seats dim to raise the contrast. */
+.seat.acting {
+  box-shadow: 0 0 0 3px var(--accent), 0 0 26px rgba(79,157,255,.55);
+  transform: translate(-50%, -50%) scale(1.06);
+  z-index: 3; animation: seat-pulse 1.5s ease-in-out infinite;
+}
+.felt.has-acting .seat:not(.acting):not(.folded) { opacity: .62; }
+.seat.acting .who { color: var(--accent); }
+.seat.acting .turn-dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); margin-right: 5px; vertical-align: middle;
+}
+@keyframes seat-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--accent), 0 0 26px rgba(79,157,255,.55); }
+  50%      { box-shadow: 0 0 0 3px var(--accent), 0 0 8px rgba(79,157,255,.25); }
+}
+/* Your own turn is green — blue means "somebody is playing", green means "YOU
+   are playing". With a phone in your hand that difference is the only thing
+   you can rely on. */
+.seat.acting.hero {
+  box-shadow: 0 0 0 3px var(--good), 0 0 26px rgba(35,180,90,.55);
+  animation: none;
+}
+.seat.acting.hero .who, .seat.acting.hero .turn-dot { color: var(--good); }
+.seat.acting.hero .turn-dot { background: var(--good); }
+@media (prefers-reduced-motion: reduce) { .seat.acting { animation: none; } }
+/* Who played IMMEDIATELY before you. Without this, at six seats there was no
+   telling whether that "raise 3 bb" label had just happened or was three
+   players ago — and that is exactly what you are answering. Orange, so it does
+   not blend into "to act". */
+.seat.prev { box-shadow: 0 0 0 2px var(--warn); }
+.seat.prev .act { color: var(--warn); }
+/* Someone who folded is out of the hand — they should read as eliminated,
+   not as a slightly transparent player. A struck-through name and a grey
+   filter say it without being read. */
+.seat.folded { filter: grayscale(1); }
+.seat.folded .who { text-decoration: line-through; }
+/* The bar above the table: who is being waited on, what came before, and who
+   is still in the hand. On a phone the table is often scrolled away, so this is
+   the one place the state of the hand is visible without hunting. */
+.turnbar {
+  display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center;
+  justify-content: center; margin: 0 14px 6px; padding: 7px 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--panel2);
+  font-size: 13px; line-height: 1.35;
+}
+.turnbar.hidden { display: none; }
+.turnbar b { font-weight: 700; }
+.turnbar .tb-turn { color: var(--accent); }
+.turnbar.mine { border-color: var(--good); }
+.turnbar.mine .tb-turn { color: var(--good); }
+.turnbar .tb-prev { color: var(--warn); }
+.turnbar .tb-alive { color: var(--dim); }
+.turnbar .tb-sep { color: var(--line); }
+.turnbar .tb-runout { color: var(--warn); font-weight: 700; }
+/* A card dealt in the runout slides onto the table, so what is new is
+   obvious. */
+@keyframes dealin {
+  from { opacity: 0; transform: translateY(-14px) rotate(-8deg) scale(.85); }
+  to   { opacity: 1; transform: none; }
+}
+.board .card.dealt { animation: dealin .45s cubic-bezier(.2,.8,.3,1.1) both; }
+/* The winning five. Raised and outlined in green, while the other showdown
+   cards dim — otherwise "the winner" is one shade away from five others. */
+.card.win {
+  outline: 2px solid var(--good); outline-offset: 1px;
+  transform: translateY(-4px); box-shadow: 0 4px 14px rgba(35,180,90,.45);
+}
+.showdown-dim .board .card:not(.win), .seat.showdown-dim .cards .card:not(.win) {
+  opacity: .45;
+}
+.seat.winner { box-shadow: 0 0 0 3px var(--good), 0 0 24px rgba(35,180,90,.5); }
+.seat.winner .who { color: var(--good); }
+/* The pot flies to the winner. With the sound off it is the only thing at the
+   table that says "you take it". */
+.chipfly {
+  position: fixed; z-index: 40; pointer-events: none;
+  font-weight: 700; font-size: 13px; color: #ffd98a;
+  background: rgba(0,0,0,.6); border: 1px solid #ffd98a55;
+  border-radius: 12px; padding: 2px 9px; white-space: nowrap;
+  transition: transform .85s cubic-bezier(.3,.7,.2,1), opacity .85s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .board .card.dealt { animation: none; }
+  .chipfly { transition: none; }
+}
+.seat .kind { font-size: 9px; text-transform: uppercase; letter-spacing: .4px; color: var(--dim); }
+.chips {
+  position: absolute; transform: translate(-50%, -50%); font-size: 11px;
+  font-weight: 700; color: #ffd98a; background: rgba(0,0,0,.45);
+  border-radius: 10px; padding: 1px 7px; white-space: nowrap;
+}
+.dealer {
+  position: absolute; transform: translate(-50%, -50%); width: 20px; height: 20px;
+  border-radius: 50%; background: #fbfcfd; color: #11161c; font-size: 11px;
+  font-weight: 700; display: grid; place-items: center;
+}
+#t-act { gap: 8px; padding: 4px 14px 6px; flex-wrap: wrap; justify-content: center; }
+#t-status { text-align: center; }
+#t-status.my-turn { color: var(--good); font-weight: 700; }
+.raisebar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  justify-content: center; width: 100%; margin-top: 4px;
+  padding-top: 8px; border-top: 1px solid var(--line);
+}
+.raisebar input[type=range] { flex: 1; min-width: 160px; max-width: 320px; accent-color: var(--accent); }
+.raisebar button { padding: 4px 10px; font-size: 12px; font-weight: 500; }
+/* Without this Safari reads quick taps on a button as a double-tap and zooms
+   the page — with sizing, where you tap repeatedly, it grew and shrank under
+   your hands. `manipulation` also drops the 300ms double-tap wait, so buttons
+   respond immediately. */
+button, select, input, .seat, .tab { touch-action: manipulation; }
+button { -webkit-tap-highlight-color: transparent; }
+/* The steppers hold the field between them, so they must not wrap away from
+   it. */
+.raisebar button.step {
+  font-size: 17px; line-height: 1; padding: 4px 11px; font-weight: 600;
+}
+.review {
+  font-size: 12px; padding: 4px 14px; color: var(--accent);
+  display: flex; flex-direction: column; gap: 5px; align-items: center;
+}
+.revline {
+  display: flex; gap: 8px; align-items: center; justify-content: center;
+  flex-wrap: wrap;
+}
+.revline input[type=range] {
+  flex: 1; min-width: 180px; max-width: 420px; accent-color: var(--accent);
+}
+.revline button { padding: 3px 9px; font-size: 12px; }
+.revnow { color: var(--fg); font-size: 13px; }
+.revnow b { color: var(--accent); }
+.hist {
+  padding: 3px 6px; border-radius: 5px; cursor: pointer;
+  border: 1px solid transparent;
+}
+.hist:hover { background: var(--panel2); }
+.hist.on { border-color: var(--accent); background: var(--panel2); }
+.result {
+  text-align: center; font-size: 13px; font-weight: 600; padding: 4px 14px 2px;
+  color: var(--good);
+}
+.handlog {
+  margin: 0 auto 14px; padding: 8px 12px; font-size: 12px; color: var(--dim);
+  max-width: 420px; max-height: 190px; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+}
+.handlog:empty { display: none; }
+.log-street {
+  color: var(--fg); font-weight: 600; font-size: 11px; letter-spacing: .5px;
+  margin: 6px 0 3px; border-top: 1px solid var(--line); padding-top: 5px;
+}
+.handlog .log-street:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+.log-street b { color: var(--accent); font-weight: 600; }
+.log-act { padding-left: 8px; }
+.log-act b { color: #ffd98a; }
+.log-act.me { color: var(--fg); font-weight: 600; }
+.seat.clickable { cursor: pointer; }
+.seat.clickable:hover { outline: 1px solid var(--accent); }
+#t-panel.open { display: flex; }
+.panel-pill.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.backdrop.open { display: block; }
+.seat-row .rm { color: var(--bad); }
+#t-act button { padding: 8px 16px; font-size: 14px; font-weight: 600; }
+#t-act button.primary, button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+#t-act button.danger { border-color: var(--bad); color: var(--bad); }
+.seat-row {
+  display: grid; grid-template-columns: 1fr auto; gap: 4px 6px;
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; margin-bottom: 6px;
+}
+.seat-row .knobs { grid-column: 1 / -1; display: none; gap: 4px; flex-wrap: wrap; }
+.seat-row.open .knobs { display: flex; }
+/* A note about the chosen prompt variant — full width, under the knobs. */
+.seat-row .note { flex-basis: 100%; font-size: 11px; color: var(--dim); }
+/* Links for other players: a card per player, with a QR code to scan. */
+.seatlinks { display: flex; flex-wrap: wrap; gap: 10px; }
+.seatlink {
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px; display: flex; flex-direction: column; align-items: center;
+  gap: 5px; width: 168px;
+}
+.seatlink .who { font-weight: 600; color: var(--fg); }
+/* A QR code is read by contrast, hence its own white background even in the
+   dark theme. */
+.seatlink svg { background: #fff; border-radius: 4px; width: 148px; height: 148px; }
+.seatlink input {
+  width: 100%; font-size: 10px; font-family: ui-monospace, monospace;
+  text-align: center;
+}
+.seatlink button { padding: 3px 8px; font-size: 11px; }
+.seat-row select, .seat-row input { font-size: 11px; padding: 3px 5px; }
+.seat-row label { font-size: 11px; color: var(--dim); display: flex; align-items: center; gap: 3px; }
+.seat-row .who { font-weight: 600; font-size: 12px; }
+table { border-collapse: collapse; width: 100%; margin-bottom: 22px; font-size: 13px; }
+th, td { padding: 5px 9px; border-bottom: 1px solid var(--line); text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--dim); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+h2 { font-size: 14px; margin: 0 0 8px; }
+.hidden { display: none !important; }
+.empty { padding: 30px; text-align: center; color: var(--dim); }
+/* ---- phone ----
+   The table did not fit on mobile: the settings column squeezed it and the
+   controls ended up below the fold. So the settings hide in a drawer, the table
+   gets the full width, and the actions stay pinned to the bottom — no
+   scrolling for them in the middle of a hand. */
+@media (max-width: 720px) {
+  .felt-wrap { padding: 6px; }
+  .felt { max-height: none; aspect-ratio: 1 / 1.02; border-width: 4px; }
+  .seat { width: 84px; padding: 3px 4px; font-size: 10px; }
+  .seat .kind { display: none; }        /* druh bota se na telefon nevejde */
+  .card { width: 22px; height: 31px; font-size: 12px; }
+  .card.small { width: 19px; height: 26px; font-size: 11px; }
+  .table-side { border-left: 0; border-top: 1px solid var(--line); }
+  /* The controls stay at the bottom edge — that is where a thumb expects
+   them. */
+  .table-stage { position: sticky; top: 0; }
+  #t-act, .raisebar {
+    position: sticky; bottom: 0; background: var(--bg); z-index: 5;
+    padding-top: 6px;
+  }
+  #t-act button { padding: 12px 12px; font-size: 15px; min-height: 44px; }
+  /* Sizing in three tidy rows: the slider, then the amount between its
+     steppers, then four buttons of equal width. Free wrapping scattered them
+     into ragged rows. The hidden "bb" unit takes no grid cell, so the
+     "− amount +" row lands in exactly four columns. */
+  .raisebar {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+    align-items: center;
+  }
+  .raisebar input[type=range] { grid-column: span 4; min-width: 0; max-width: none; }
+  /* iOS zooms the page whenever you tap a field with text under 16px — and
+     never zooms back out. Sixteen stops it at the source. */
+  .raisebar input[type=number] {
+    grid-column: span 2; width: 100% !important; font-size: 16px;
+  }
+  #t-setup input, #t-setup select { font-size: 16px; }
+  .raisebar .unit { display: none; }    /* the neighbouring buttons give the unit away */
+  .raisebar button { padding: 11px 4px; font-size: 13px; min-height: 44px; }
+  .raisebar button.step { font-size: 20px; }
+  h1 { font-size: 15px; }
+  header .meta { display: none; }       /* the hand count takes the whole row */
+  /* Installed to the home screen the page reaches under the status bar, so the
+     header has to add its own padding or the clock and battery sit on top of
+     its buttons. */
+  header {
+    padding: calc(8px + env(safe-area-inset-top, 0px)) 10px 8px; gap: 6px;
+  }
+  .tabs button { padding: 5px 8px; font-size: 12px; }
+  .seatlink { width: 100%; }            /* full-width QR, so it can be scanned */
+  body { overflow-x: hidden; }
+}
+
+/* ---- phone: the table on exactly one screen ----
+   While the table was an ordinary scrolling page this could not be defended on
+   mobile: it overflowed in both directions, a finger dragged the whole
+   document, and Safari's bars slid in and out as it did, so the layout kept
+   changing under your hands. Here document scrolling is switched off entirely
+   (`position: fixed`) and the content is stacked into a column exactly `--app-h`
+   tall (the real visible height from visualViewport). The table takes whatever
+   is left after the bar above and the actions below — nothing overflows, so
+   there is nothing to scroll.
+
+   On iOS the browser bars can only be hidden by adding the page to the home
+   screen; there is a prompt in the UI for that. At least nothing is ever
+   hidden underneath them. */
+@media (max-width: 900px) {
+  /* A column the full visible height: the header fixed on top, the table taking
+     the rest. Without flex, `height:100%` on the table would overflow by
+     exactly the height of the header. */
+  body.tab-table {
+    position: fixed; inset: 0; width: 100%; height: var(--app-h);
+    overflow: hidden; overscroll-behavior: none;
+    display: flex; flex-direction: column;
+  }
+  body.tab-table header { flex: none; position: static; }
+  body.tab-table #view-table {
+    display: flex; flex-direction: column; flex: 1; min-height: 0; height: auto;
+    grid-template-columns: none;
+  }
+  body.tab-table .table-stage {
+    flex: 1; min-height: 0; display: flex; flex-direction: column;
+    position: static; padding-top: 0;
+  }
+  /* The table is the flexible part: it gets the remaining height. `fitFelt()`
+     works out the exact size — pure CSS cannot, because `aspect-ratio` falls
+     out with being constrained in both directions at once and one of them
+     always overflows. */
+  body.tab-table .felt-wrap {
+    flex: 1; min-height: 0; min-width: 0; display: flex; padding: 4px 6px;
+    overflow: hidden;
+  }
+  body.tab-table .felt {
+    margin: auto; max-height: none; max-width: none; aspect-ratio: auto;
+    border-width: 4px;
+  }
+  /* The title must not push the buttons off the screen. */
+  body.tab-table header h1 {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* Things that do not fit on a phone and are not needed to play. */
+  body.tab-table .handlog,
+  body.tab-table #t-status,
+  body.tab-table .stage-nav { display: none; }
+  /* The "who is to act" bar on top, the actions below — neither sticky, because
+     nothing scrolls. The bottom block respects the home indicator. */
+  body.tab-table .turnbar {
+    flex: none; margin: 4px 6px; padding: 5px 8px; font-size: 12px;
+  }
+  body.tab-table #t-act,
+  body.tab-table .raisebar,
+  body.tab-table .review,
+  body.tab-table .result {
+    position: static; flex: none;
+  }
+  body.tab-table .controls:last-of-type { padding-bottom: 4px; }
+  body.tab-table .table-bottom {
+    flex: none; padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Table setup turns from a side column into a slide-over panel — on a phone
+     you need it when setting a game up, not during a hand. */
+  body.tab-table .table-side {
+    position: fixed; inset: 0; z-index: 40; display: none;
+    background: var(--bg); border: 0; overflow-y: auto;
+    padding: 12px 14px calc(24px + env(safe-area-inset-bottom, 0px));
+    -webkit-overflow-scrolling: touch;
+  }
+  body.tab-table.side-open .table-side { display: block; }
+  body.tab-table.side-open { overflow: hidden; }
+  #side-close {
+    position: sticky; top: 0; z-index: 2; width: 100%; margin-bottom: 8px;
+    padding: 10px; font-size: 15px; min-height: 44px;
+  }
+  /* In full screen the header goes too — a few dozen more pixels for the
+     table. */
+  body.tab-table.fullscreen header { display: none; }
+  /* Landscape is short on height: the table widens and the seats shrink. */
+  @media (orientation: landscape) {
+    body.tab-table header { display: none; }
+    body.tab-table .seat { width: 72px; font-size: 9px; }
+    body.tab-table .seat-avatar { width: 22px; height: 22px; }
+    body.tab-table .turnbar { display: none; }
+    body.tab-table #t-act button { min-height: 38px; padding: 8px 10px; }
+    body.tab-table .raisebar button { min-height: 38px; }
+  }
+}
+/* A very short window (landscape, or a small phone): seats and cards one step
+   smaller, or six players overlap. */
+@media (max-width: 900px) and (max-height: 460px) {
+  body.tab-table .seat { width: 64px; padding: 2px 3px; font-size: 9px; }
+  body.tab-table .seat-avatar { width: 18px; height: 18px; margin-bottom: 1px; }
+  body.tab-table .card { width: 18px; height: 25px; font-size: 11px; }
+  body.tab-table .card.small { width: 16px; height: 22px; font-size: 10px; }
+}
+
+/* On the desktop, full screen just hides everything around the table. */
+body.fullscreen header,
+body.fullscreen .table-side { display: none; }
+body.fullscreen #view-table {
+  grid-template-columns: 1fr; height: var(--app-h);
+}
+body.fullscreen .table-stage {
+  height: 100%; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+}
+body.fullscreen .felt { max-height: none; max-width: none; }
+body.fullscreen .handlog { display: none; }
+/* The table buttons in the header only make sense at the table; "setup" only
+   where there is no side column, which means phone and tablet. */
+#t-side, #t-full, #side-close, #t-exit { display: none; }
+body.fullscreen #t-exit {
+  display: block; position: fixed; z-index: 30; opacity: .7;
+  right: 8px; top: calc(6px + env(safe-area-inset-top, 0px));
+  padding: 7px 10px; font-size: 13px;
+}
+body.tab-table #t-full { display: block; }
+@media (max-width: 900px) {
+  body.tab-table #t-side { display: block; }
+  #side-close { display: block; }
+}
+/* The "add this to your home screen" prompt — on iOS the only way to be rid
+   of the browser bars top and bottom. Shown once, and dismissable for good. */
+#a2hs {
+  /* Top, not bottom: the action buttons are down there and the tip would cover
+     them at exactly the moment a person is to act. */
+  position: fixed; left: 8px; right: 8px; z-index: 45;
+  top: calc(52px + env(safe-area-inset-top, 0px));
+  background: var(--panel); border: 1px solid var(--accent); border-radius: 10px;
+  padding: 10px 12px; font-size: 13px; display: flex; gap: 10px; align-items: center;
+  box-shadow: 0 6px 24px rgba(0,0,0,.45);
+}
+#a2hs button { flex: none; }
+
+</style>
+</head>
+<body>
+<header>
+  <h1>pokerarena</h1>
+  <span class="spacer"></span>
+  <div class="tabs">
+    <!-- Setup and fullscreen belong to table. Placed in header because a floating
+         button at the bottom edge on mobile sat directly on top of action buttons. -->
+    <button id="t-side" title="table setup">⚙</button>
+    <button id="t-full" title="full screen">⛶</button>
+    <button id="theme">◐</button>
+  </div>
+</header>
+
+<div id="view-table">
+  <div class="table-stage">
+    <div class="turnbar hidden" id="t-turn"></div>
+    <div class="felt-wrap"><div class="felt live" id="t-felt"></div></div>
+    <div class="review hidden" id="t-review"></div>
+    <div class="result hidden" id="t-result"></div>
+    <div class="table-bottom">
+      <div class="controls" id="t-act"></div>
+      <div class="controls" style="padding:0 14px 4px;justify-content:center">
+        <button id="t-pause">⏸ Pause</button>
+        <button id="t-next">▶ Next hand</button>
+        <label style="font-size:12px;color:var(--dim)">
+          <input type="checkbox" id="t-sound" checked> sound on your turn</label>
+      </div>
+      <div id="t-seatwarn" class="notes hidden" style="text-align:center"></div>
+    </div>
+    <div class="now" id="t-status" style="padding:0 14px 10px"></div>
+    <div class="handlog" id="t-handlog"></div>
+  </div>
+  <!-- In full screen the header is gone, and the ⛶ button with it, so the way
+       back has to stay floating — otherwise there is no leaving. -->
+  <button id="t-exit" title="leave full screen">✕</button>
+  <div class="table-side">
+    <button id="side-close">✕ Close setup</button>
+    <!-- Links for other players belong AT THE TOP: you need them the moment a
+         table exists, and under the seat editor nobody found them. -->
+    <div id="t-links" class="notes hidden" style="padding:0 0 10px;color:var(--dim)"></div>
+    <div id="t-ownergate" class="notes hidden" style="padding:0 0 10px"></div>
+    <details id="t-setup" open>
+      <summary class="setup-head">Table setup</summary>
+      <div class="controls" style="padding:10px 0 6px">
+        <select id="preset"></select>
+        <button id="t-load">Load</button>
+        <button id="t-friends" class="primary" style="background:#28a745;border-color:#28a745;margin-left:6px" title="Load the preset: three people against three bots">🎮 3 players vs 3 bots</button>
+        <button id="t-friends4" class="primary" style="background:#28a745;border-color:#28a745;margin-left:6px" title="Load the preset: four people against two bots">🎮 4 players vs 2 bots</button>
+        <button id="t-friends5" class="primary" style="background:#28a745;border-color:#28a745;margin-left:6px" title="Load the preset: five people against one bot">🎮 5 players vs 1 bot</button>
+      </div>
+      <div class="controls" style="padding:0 0 6px">
+        <button id="t-start" class="primary">▶ New game</button>
+        <button id="t-stop">Stop</button>
+        <span id="t-run" style="font-size:11px;color:var(--dim)"></span>
+      </div>
+      <div class="controls" style="padding:0 0 8px;gap:6px">
+        <label>hands <input id="t-hands" type="number" value="100" min="1" max="500" style="width:60px"></label>
+        <label title="the small blind is not always half the big blind — 2/5 makes it 0.4bb, a different preflop game">
+          blinds <select id="t-blinds" style="width:82px"></select></label>
+        <label>stack <input id="t-stack" type="number" value="100" min="10" max="500" style="width:56px">bb</label>
+        <label>rebuy below <input id="t-rebuy" type="number" value="70" min="1" max="500" style="width:52px">bb</label>
+        <label title="how long a model gets per decision; the slowest need over 22s">
+          budget <input id="t-timeout" type="number" value="45" min="5" max="180" style="width:50px">s</label>
+        <label title="the button stays put — everyone keeps their position all game">
+          <input id="t-fixed" type="checkbox"> fixed positions</label>
+      </div>
+      <div id="t-warn" class="notes hidden" style="padding:0 0 6px"></div>
+      <div id="t-runs" style="font-size:12px;padding:0 0 8px"></div>
+      <div id="t-editor"></div>
+    </details>
+    <h2 style="margin-top:14px">Progress</h2>
+    <div id="t-log" style="font-size:12px;color:var(--dim)"></div>
+    <h2 style="margin-top:14px">Hands played <span id="t-history-of"></span></h2>
+    <div id="t-history" style="font-size:12px"></div>
+  </div>
+</div>
+
+<script>
+const SUIT = {s: ['♠', ''], h: ['♥', 'red'], d: ['♦', 'blue'], c: ['♣', 'green']};
+const $ = (id) => document.getElementById(id);
+/* ---------- shared helpers ---------- */
+
+const fmt = (n, d = 2) => (n === null || n === undefined) ? '—' : Number(n).toFixed(d);
+
+/* One card as an element. `small` is the version used inside a seat rather
+   than on the board. */
+function card(text, small) {
+  const rank = text.slice(0, -1), suit = text.slice(-1).toLowerCase();
+  const [glyph, cls] = SUIT[suit] || ['?', ''];
+  const el = document.createElement('div');
+  el.className = 'card ' + cls + (small ? ' small' : '');
+  el.textContent = rank + glyph;
+  return el;
+}
+
+/* ---------- table s boty ---------- */
+let tablePoll = null, presets = {}, options = null, editorSeats = [];
+let reviewing = null;      // hand_id of the hand under review, else null
+let reviewHandData = null; // its snapshot, steps included
+let reviewStep = 0;        // which action is next; == the count means the end
+let reviewViewer = null;
+// The live state carries the seat kinds (who is a bot, who a person). None
+// arrive while reviewing, and without them nobody could be clicked.
+let seatKinds = [];
+let lastViewer = null;     // which seat I play, per the last state
+let actKey = null;         // `asked_at` of the question the action bar is drawn for
+let lastStateRaw = null;   // the last state, raw — no change means no redraw
+let tableLabel = '';       // name of the running table; the history is its own
+// The address carries the seat token, so a friend's link is the whole sign-in.
+/* Tokens are remembered: open a link carrying one once and the bare address
+   works from then on. Without this every click back returned "owner only". */
+function rememberedToken(name) {
+  const fromUrl = new URLSearchParams(location.search).get(name);
+  try {
+    if (fromUrl) localStorage.setItem('pf-' + name, fromUrl);
+    return fromUrl || localStorage.getItem('pf-' + name) || '';
+  } catch (e) {
+    return fromUrl || '';               // private mode does not allow localStorage
+  }
+}
+let seatToken = rememberedToken('seat');
+let ownerToken = rememberedToken('owner');
+
+/* The browser remembers a token, but it is only valid for the table it was
+   issued at. After "New game" the stored one belongs to nobody: the server
+   matches it to no seat, so the player got neither cards nor buttons — while
+   the table showed it was waiting on them. Throwing it away is the only right
+   answer. */
+function forgetStaleSeatToken() {
+  seatToken = '';
+  try { localStorage.removeItem('pf-seat'); } catch (e) { /* never mind */ }
+  // So the token does not return from the address on the next page load.
+  if (new URLSearchParams(location.search).get('seat')) {
+    history.replaceState(null, '', location.pathname + location.hash);
+  }
+}
+
+let availableAvatars = [];
+async function loadAvatars() {
+  try {
+    const res = await fetch('/api/avatars');
+    if (res.ok) {
+      const d = await res.json();
+      availableAvatars = d.avatars || [];
+    }
+  } catch (e) { /* no avatars is fine */ }
+}
+
+function avatarPicker(index, seat) {
+  const value = seat.avatar || '';
+  const opts = availableAvatars.map((a) => `<option value="${a.id}"${a.id === value ? ' selected' : ''}>${a.name}</option>`).join('');
+  const imgUrl = value ? `/avatars/${value}` : '';
+  return `<label title="Player or bot icon">icon <select data-f="avatar" data-i="${index}" style="max-width:140px">
+    <option value=""${!value ? ' selected' : ''}>— default —</option>
+    ${opts}
+  </select>${value ? `<img src="${imgUrl}" class="seatlink-avatar" style="vertical-align:middle;margin-left:4px">` : ''}</label>`;
+}
+
+// Without the owner token no table can be started. That used to surface only
+// as an error after clicking "New game" — and behind a tunnel it is an
+// ordinary state, since every restart gives a new address and an empty store.
+function showOwnerGate(needed) {
+  const box = $('t-ownergate');
+  if (!box) return;
+  box.classList.toggle('hidden', !needed);
+  $('t-start').disabled = !!needed;
+  if (!needed) return;
+  box.innerHTML = `<b>You are not signed in as the owner</b>, so you cannot start a game.
+    Open the link with <code>?owner=…</code> that the server printed at startup —
+    or paste just the token here:
+    <div style="margin-top:6px">
+      <input id="t-owner-gate" placeholder="paste a token" style="width:150px">
+      <button id="t-owner-gate-save">save</button>
+    </div>`;
+  $('t-owner-gate-save').onclick = () => {
+    const value = ($('t-owner-gate').value || '').trim();
+    if (!value) return;
+    ownerToken = value;
+    try { localStorage.setItem('pf-owner', ownerToken); } catch (e) { /* never mind */ }
+    options = null;                      // so permissions get asked for again
+    loadPresets();
+  };
+}
+
+async function loadPresets() {
+  // With the token, so the server can tell whether this browser may start one.
+  if (!options) options = await (await fetch('/api/table/options'
+    + (ownerToken ? '?owner=' + encodeURIComponent(ownerToken) : ''))).json();
+  // A friend holding a seat link is unaffected — they play, they do not set up.
+  showOwnerGate(options.needs_owner && !seatToken);
+  fillBlindPicker();
+  await loadAvatars();
+  presets = await (await fetch('/api/table/presets')).json();
+  // Cheapest first: the default must not be a line-up that costs dollars.
+  const order = Object.entries(presets)
+    .sort((a, b) => a[1].estimated_cost_per_hand - b[1].estimated_cost_per_hand);
+  $('preset').innerHTML = order.map(([name, c]) =>
+    `<option value="${name}">${name} — ${c.seats.length} seats, ~$${(c.estimated_cost_per_hand * 100).toFixed(2)}/100 hands</option>`).join('');
+  if (presets.friends) $('preset').value = 'friends';
+  else if (presets.human) $('preset').value = 'human';   // the line-up you actually play
+  loadPresetIntoEditor();
+}
+
+function fillBlindPicker() {
+  const box = $('t-blinds');
+  const all = options.blind_structures || {};
+  if (!box || !Object.keys(all).length) return;
+  const keep = box.value;
+  box.innerHTML = Object.keys(all)
+    .map((label) => `<option value="${label}">${label}</option>`).join('');
+  // Refilling the menu must not throw the table back to the default structure.
+  if (keep && all[keep]) box.value = keep;
+}
+
+function loadPresetIntoEditor() {
+  const preset = presets[$('preset').value];
+  if (!preset) return;
+  editorSeats = preset.seats.map((s) => ({ ...s }));
+  renderEditor();
+}
+
+/* Cost is worked out here, not on the server — the setup changes on every
+   click. Same measured medians as `TableConfig.estimated_cost_per_hand`. */
+function estimateCost() {
+  const per = { 'deepseek/deepseek-v4-flash': 0.00034, 'deepseek/deepseek-v4-pro': 0.00041,
+                'openai/gpt-5.2': 0.0074, 'anthropic/claude-sonnet-5': 0.0102,
+                'ollama/llama4': 0 };
+  return editorSeats.reduce((sum, s) => s.kind !== 'llm' ? sum
+    : sum + (per[s.decision_model] === undefined ? 0.001 : per[s.decision_model]) * 0.37, 0);
+}
+
+/* What a given model supports. The server sends it in `model_caps`; for a
+   model you type in by hand nothing is assumed and the knobs stay open. */
+function caps(model) {
+  return ((options && options.model_caps) || {})[model] || {};
+}
+
+function modelLabel(m) {
+  if (!m) return '';
+  const parts = m.split('/');
+  return parts.length > 1 ? parts[1] + ' (' + parts[0] + ')' : m;
+}
+
+/* The model picker. It has to be a `select` listing everything — when this
+   was a free text field with autocomplete, only the model already set was
+   visible and the rest may as well not have existed. The last entry switches to
+   typing one in, so a model outside our list can be used. */
+function fallbackPicker(index, value) {
+  // Its own picker, not `modelPicker`: a fallback must be possible to turn OFF,
+  // and empty is the default here (without it the first model would be picked).
+  const known = (options.models || []);
+  return `<select data-f="fallback_model" data-i="${index}" style="max-width:180px">`
+    + `<option value=""${value ? '' : ' selected'}>— none —</option>`
+    + known.map((m) => `<option value="${m}"${m === value ? ' selected' : ''}>`
+        + `${modelLabel(m)}</option>`).join('')
+    + `</select>`;
+}
+
+function modelPicker(field, index, value) {
+  const known = (options.models || []);
+  if (value && !known.includes(value)) {
+    return `<input data-f="${field}" data-i="${index}" value="${value}"
+      style="width:210px" title="your own model — any litellm string">`;
+  }
+  return `<select data-f="${field}" data-i="${index}" style="max-width:210px">`
+    + known.map((m) => `<option value="${m}"${m === value ? ' selected' : ''}>`
+        + `${modelLabel(m)}</option>`).join('')
+    + `<option value="__custom__">another model…</option></select>`;
+}
+
+/* Reasoning. Only the levels a model's API actually accepts are offered. A
+   provider that cannot turn reasoning off at all says so out loud. */
+function thinkingPicker(index, seat) {
+  const c = caps(seat.decision_model);
+  // With no known levels this falls back to a plain on/off — "high" is
+  // translated by such a provider onto its own switch. Offering only "off"
+  // would mean reasoning could never be turned on at all.
+  const known = c.levels && c.levels.length ? c.levels : null;
+  const levels = known || (c.off === false ? [] : ['high']);
+  const choices = (c.off === false ? [] : ['off']).concat(levels);
+  const label = (v) => (v === 'off' ? 'off' : (known ? v : 'on'));
+  const note = c.off === false ? ' · cannot be turned off, only lowered'
+    : (c.verified === false ? ' · unverified' : '');
+  return `<label title="reasoning makes answers longer and slower${note}">
+    reasoning <select data-f="thinking" data-i="${index}">`
+    + choices.map((v) => `<option value="${v}"${v === seat.thinking ? ' selected' : ''}>`
+        + `${label(v)}</option>`).join('')
+    + `</select>${note ? `<span class="note">${note.replace(' · ', '')}</span>` : ''}</label>`;
+}
+
+function botShortName(model, thinking) {
+  if (!model) return 'bot';
+  let name = model.includes('/') ? model.split('/').slice(1).join('/') : model;
+  name = name.replace(/^google\//i, '').replace(/-/g, ' ').replace(/_/g, ' ').trim();
+  if (thinking && thinking !== 'off') {
+    name += ` (${thinking} think)`;
+  }
+  return name;
+}
+
+function renderEditor() {
+  const box = $('t-editor');
+  const opt = (list, val, labels) => list.map((v) =>
+    `<option value="${v}"${v === val ? ' selected' : ''}>${(labels || {})[v] || v}</option>`).join('');
+  /* The arena ships one variant; a registered catalogue can offer more, and
+     then they simply all appear here. */
+  const optPromptVariants = (val) => {
+    const all = (options && options.prompt_variants) || [];
+    return all.map((v) => `<option value="${v}"${v === val ? ' selected' : ''}>${v}</option>`).join('');
+  };
+  const short = (m) => modelLabel(m);
+  box.innerHTML = editorSeats.map((s, i) => `
+    <div class="seat-row${s._open ? ' open' : ''}" data-i="${i}">
+      <div class="who">${s.name}
+        <span class="kind"> — ${(options.seat_labels || {})[s.kind] || s.kind}${
+          s.kind === 'llm' ? ' · ' + short(s.decision_model) : ''}</span></div>
+      <button data-toggle="${i}">${s._open ? '▴' : '▾'}</button>
+      <div class="knobs">
+        <label>name <input data-f="name" data-i="${i}" value="${s.name}" style="width:96px"></label>
+        <button class="rm" data-rm="${i}" ${editorSeats.length <= 2 ? 'disabled' : ''}>remove</button>
+        <label>kind <select data-f="kind" data-i="${i}">${opt(options.seat_kinds, s.kind, options.seat_labels)}</select></label>
+        ${avatarPicker(i, s)}
+        ${s.kind === 'solver' ? `<label title="how long the solver may sample per decision; it pays in time, not money">solver budget <input type="number" min="0.5" max="20" step="0.5" style="width:52px" data-f="solver_budget_s" data-i="${i}" value="${s.solver_budget_s}">s</label>` : ''}
+        ${s.kind === 'llm' ? `
+          <label>model ${modelPicker('decision_model', i, s.decision_model)}</label>
+          <label title="a backup for when the main model runs out of quota or hits a rate limit; unused otherwise">
+            fallback ${fallbackPicker(i, s.fallback_model)}</label>
+          ${thinkingPicker(i, s)}
+          ${caps(s.decision_model).temperature === false ? ''
+            : `<label title="0 is the most certain answer, higher is more varied; empty means 0.2">
+                 temperature <input type="number" min="0" max="2" step="0.1" style="width:52px"
+                   data-f="temperature" data-i="${i}" value="${s.temperature ?? ''}"
+                   placeholder="0.2"></label>`}
+          <label title="how long this model gets; empty means the table's setting">
+            budget <input type="number" min="5" max="180" style="width:50px"
+              data-f="timeout_s" data-i="${i}" value="${s.timeout_s || ''}"
+              placeholder="table">s</label>
+          <label>prompt <select data-f="prompt_variant" data-i="${i}"
+            >${optPromptVariants(s.prompt_variant)}</select></label>
+` : ''}
+      </div>
+    </div>`).join('');
+
+  box.innerHTML += `<div class="controls" style="padding:4px 0">
+    <button id="t-add" ${editorSeats.length >= 6 ? 'disabled' : ''}>+ seat</button>
+    <span style="font-size:11px;color:var(--dim)">${editorSeats.length}/6</span></div>`;
+  $('t-add').onclick = () => {
+    if (editorSeats.length >= 6) return;
+    // A new name must not collide — validation rejects duplicates.
+    let n = editorSeats.length + 1;
+    while (editorSeats.some((s) => s.name === 'player ' + n)) n++;
+    editorSeats.push({ ...options.defaults, name: 'player ' + n, _open: true });
+    renderEditor();
+  };
+  box.querySelectorAll('[data-rm]').forEach((b) => {
+    b.onclick = () => {
+      if (editorSeats.length <= 2) return;      // table requires at least two players
+      editorSeats.splice(+b.dataset.rm, 1);
+      renderEditor();
+    };
+  });
+  box.querySelectorAll('[data-toggle]').forEach((b) => {
+    b.onclick = () => { const i = +b.dataset.toggle;
+      editorSeats[i]._open = !editorSeats[i]._open; renderEditor(); };
+  });
+  box.querySelectorAll('[data-f]').forEach((el) => {
+    el.onchange = () => {
+      const seat = editorSeats[+el.dataset.i];
+      const field = el.dataset.f;
+
+      // "another model…" only unlocks typing one in; you supply the value.
+      if (el.value === '__custom__') {
+        seat[field] = '';
+        renderEditor();
+        return;
+      }
+      // An empty number means "unset" (the table's budget), not zero.
+      const val = el.type === 'checkbox' ? el.checked
+        : el.type === 'number' ? (el.value === '' ? null : +el.value)
+        : el.value;
+
+      seat[field] = val;
+
+      if (field === 'kind') {
+        if (val === 'llm') {
+          seat.name = botShortName(seat.decision_model, seat.thinking);
+        } else if (val === 'solver') {
+          seat.name = 'solver';
+        } else if (val === 'heuristic') {
+          seat.name = 'house';
+        } else if (val === 'human') {
+          seat.name = 'Hero';
+        }
+      }
+
+      // The seat is named after what it plays, so the name follows the model.
+      if ((field === 'decision_model' || field === 'thinking') && seat.kind === 'llm') {
+        seat.name = botShortName(seat.decision_model, seat.thinking);
+      }
+
+      renderEditor();                     // the kind decides which knobs apply
+    };
+  });
+
+  const estimate = estimateCost() * (+$('t-hands').value || 0);
+  const warn = $('t-warn');
+  warn.classList.remove('hidden');
+  warn.textContent = estimate >= 0.5
+    ? `⚠️ this line-up will spend about $${estimate.toFixed(2)}`
+    : `estimated cost $${estimate.toFixed(3)} for ${$('t-hands').value} hands`;
+  warn.style.color = estimate >= 0.5 ? 'var(--warn)' : 'var(--dim)';
+}
+
+function blindStructure() {
+  const all = options.blind_structures || {};
+  const picked = all[($('t-blinds') || {}).value];
+  // With no menu from the server the default 0.5/1 structure stands: a table
+  // must not start with blinds other than the ones actually on screen.
+  return picked || { small_blind: 1, big_blind: 2 };
+}
+
+function collectConfig() {
+  return {
+    seats: editorSeats.map(({ _open, ...s }) => s),
+    // Internally the game runs in chips (PokerKit wants whole numbers); one
+    // displayed unit is two chips, so a half-blind raise step lands whole.
+    ...blindStructure(),
+    start_stack_bb: +$('t-stack').value || 100,
+    rebuy_below_bb: +$('t-rebuy').value || 70,
+    timeout_s: +$('t-timeout').value || 45,
+    rotate_button: !$('t-fixed').checked,
+  };
+}
+
+async function showSeatLinks() {
+  const res = await fetch('/api/table/seats'
+    + (ownerToken ? '?owner=' + encodeURIComponent(ownerToken) : ''));
+  if (!res.ok) return;                       // links are not handed out over the network
+  const d = await res.json();
+  const rows = d.links || [];
+  if (!rows.length) return;
+  $('t-links').classList.remove('hidden');
+  // A card per player: a QR code to scan, and the link to send below it.
+  // The QR arrives ready-made from the server — the token must never reach
+  // an outside service.
+  $('t-links').innerHTML = `<b>Links for other players</b>
+    <div style="margin:2px 0 8px">everyone scans their QR code with a phone or
+      opens their own link — it is also the sign-in to that seat, so do not pass
+      it on. ${rows.length === 1
+        ? 'You are the only person at this table, so you play right here.'
+        : 'You play in whichever window you open your link in.'}</div>
+    <div class="seatlinks">` + rows.map((r) => {
+      const seatInfo = (seatKinds || []).find((q) => q.name === r.name) || {};
+      const av = seatInfo.avatar ? `<img src="/avatars/${seatInfo.avatar}" class="seatlink-avatar" alt="${r.name}">` : '';
+      return `
+      <div class="seatlink">
+        <div class="who">${av} <span>${r.name}</span></div>
+        ${r.qr || '<div style="color:var(--dim)">the address is too long for a QR code</div>'}
+        <input readonly value="${r.url}" onclick="this.select()">
+        <button data-copy="${r.url}">copy</button>
+      </div>`;
+    }).join('') + '</div>';
+  $('t-links').querySelectorAll('[data-copy]').forEach((b) => {
+    b.onclick = () => {
+      // Without HTTPS there is no clipboard API; selected text can be copied by hand.
+      const link = b.dataset.copy;
+      if (navigator.clipboard) navigator.clipboard.writeText(link);
+      b.textContent = 'copied';
+      setTimeout(() => { b.textContent = 'copy'; }, 1500);
+    };
+  });
+}
+
+/* Who is to act, what came before, who is still in — one line above the table.
+   All of it can be read off the table itself, from the lit seat and the labels
+   by the players, but with six seats and a quick sequence of actions that means
+   sweeping your eyes around the whole oval. */
+function renderTurnBar(s, live) {
+  const bar = $('t-turn');
+  if (!live) { bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  const seats = live.seats || [];
+  const acts = live.actions || [];
+  const last = acts.length ? acts[acts.length - 1] : null;
+  const alive = seats.filter((p) => !p.folded);
+  // `acting` decides, not `finished`: stepping a completed hand keeps
+  // `finished: true` (it is a snapshot of a finished hand) while still having
+  // someone to act at each step — by the flag, the bar would fall silent.
+  const acting = live.acting
+    ? seats.find((p) => p.name === live.acting) : null;
+  // The amount to call comes from the table, not `waiting_for` — only the token
+  // holder gets that, and the bar should read for everyone at the table.
+  const level = Math.max(0, ...seats.map((p) => +p.bet || 0));
+  const toCall = acting ? Math.max(0, level - (+acting.bet || 0)) : 0;
+  const mine = !!(acting && acting.name === s.viewer);
+  bar.classList.toggle('mine', mine);
+  const parts = [];
+  if (live.runout_street) {
+    // Everyone is all-in, the cards are face up, and only the board is awaited.
+    parts.push('<span class="tb-runout">ALL-IN · running out '
+      + (STREET[live.runout_street] || live.runout_street) + '</span>');
+  } else if (acting) {
+    parts.push(`<span class="tb-turn">${mine ? '▶ JSI NA TAHU' : '▶ na tahu'}: `
+      + `<b>${acting.name}</b> <span class="pos">${acting.position}</span>`
+      + (toCall > 0 ? ` · dorovnat ${bbs(toCall)}${unit()}` : ' · check zdarma') + '</span>');
+  } else if (live.finished) {
+    parts.push('<span class="tb-turn">hand complete</span>');
+  } else if (!seats.length) {
+    parts.push('<span class="tb-alive">no table is running</span>');
+  } else {
+    parts.push('<span class="tb-alive">waiting for the next hand</span>');
+  }
+  if (last) {
+    const amount = SHOWS_TOTAL[last.action] ? last.total : last.amount;
+    parts.push(`<span class="tb-prev">previous action: <b>${last.player}</b> `
+      + `${VERB[last.action] || last.action}`
+      + (last.action === 'raise' ? ' to' : '')
+      + (amount ? ` ${bbs(amount)}${unit()}` : '') + '</span>');
+  }
+  parts.push(`<span class="tb-alive"><b>${alive.length}</b> of ${seats.length} still in`
+    + `: ${alive.map((p) => p.name).join(', ')}</span>`);
+  bar.innerHTML = parts.join('<span class="tb-sep">|</span>');
+}
+
+function renderLiveTable(s, override) {
+  const felt = $('t-felt');
+  felt.innerHTML = '';
+  const live = override || s.live;
+  renderTurnBar(s, live);
+  // The bar above the table changes height (one row or two), so the table size
+  // must be recalculated after it — otherwise it overflows by that row.
+  fitFelt();
+  if (!live) {
+    felt.innerHTML = '<div class="middle"><div class="pot">no table is running</div></div>';
+    return;
+  }
+  // The hero must sit at six o'clock, as in every client. So the seats are
+  // rotated until their index comes first — drawing starts from the bottom.
+  // Dimming the other seats only makes sense while somebody really is to act;
+  // between hands and after the showdown the whole table would go pale.
+  felt.classList.toggle('has-acting', !!live.acting);
+  const seats = live.seats.slice();
+  const me = seats.findIndex((x) => x.name === s.viewer);
+  const ordered = me > 0 ? seats.slice(me).concat(seats.slice(0, me)) : seats;
+  const n = ordered.length;
+
+  const mid = document.createElement('div');
+  mid.className = 'middle';
+  const board = document.createElement('div');
+  board.className = 'board';
+  // The winning five is outlined only once the showdown is complete — during
+  // the runout it would give the result away before the river lands.
+  const winRows = live.highlight_win ? (live.showdown_hands || []) : [];
+  const winCards = new Set(winRows.filter((r) => r.won)
+    .flatMap((r) => r.best || []));
+  felt.classList.toggle('showdown-dim', winCards.size > 0);
+  (live.board || []).forEach((c, i) => {
+    const el = card(c);
+    // `fresh_from` comes from the runout animation: everything from this index
+    // on has only just reached the table.
+    if (live.fresh_from !== undefined && i >= live.fresh_from) el.classList.add('dealt');
+    if (winCards.has(c)) el.classList.add('win');
+    board.appendChild(el);
+  });
+  mid.appendChild(board);
+  const pot = document.createElement('div');
+  pot.className = 'pot';
+  // The structure belongs with the pot: without it "pot 12" could be six
+  // blinds (0.5/1) or two and a half (2/5).
+  pot.textContent = `pot ${bbs(live.pot)}${unit()} · ${live.street}`
+    + (unitLabel() ? '' : ` · blindy ${blindsLabel}`);
+  mid.appendChild(pot);
+  felt.appendChild(mid);
+
+  // A seat is a box, not a point — on the rim of the oval it would spill out,
+  // hence a smaller radius horizontally (boxes are wide) than vertically. On a
+  // narrow screen the box is proportionally far bigger, so the radius shrinks
+  // again; at a fixed 38% the outer seats hung off the screen on a phone.
+  const narrow = felt.clientWidth < 520;
+  const rx = narrow ? 30 : 38;
+  const ry = narrow ? 35 : 42;
+  ordered.forEach((p, i) => {
+    const angle = (Math.PI * 2 * i) / n + Math.PI / 2;
+    const x = 50 + rx * Math.cos(angle);
+    const y = 50 + ry * Math.sin(angle);
+    const kindOf = ((s.seats || []).find((q) => q.name === p.name)
+      || seatKinds.find((q) => q.name === p.name) || {}).kind;
+    // Any non-human seat can be opened, and only on a finished hand — a bot's
+    // prompt holds its cards, so mid-deal this would give the live hand away.
+    const clickable = kindOf && kindOf !== 'human' && live.finished;
+    // Once a hand is over nobody is to act — a lit seat would be lying.
+    // `acting` is the source of truth even when stepping a finished hand: it
+    // reports as `finished`, yet at every step someone is to act.
+    const acting = !!live.acting && live.acting === p.name;
+    // The previous player: the one whose action is being answered. With nobody
+    // to act (a finished hand) there is nothing to answer and the mark stays off.
+    const lastAct = (live.actions || [])[(live.actions || []).length - 1];
+    const prev = !!lastAct && !!live.acting && !acting && lastAct.player === p.name;
+    const won = !!live.highlight_win && (live.winners || []).includes(p.name);
+    const el = document.createElement('div');
+    el.dataset.name = p.name;              // so the pot can fly to the seat
+    el.className = 'seat' + (p.name === s.viewer ? ' hero' : '')
+      + (p.folded ? ' folded' : '') + (acting ? ' acting' : '')
+      + (prev ? ' prev' : '') + (won ? ' winner' : '')
+      + (winCards.size && !p.folded ? ' showdown-dim' : '')
+      + (clickable ? ' clickable' : '');
+    el.style.left = x + '%';
+    el.style.top = y + '%';
+    const kind = kindOf || '';
+    // That player's last action, right beside them. Without it all you could see
+    // was their chips — and a check or a fold showed on the table not at all.
+    const mine = (live.actions || []).filter((a) => a.player === p.name);
+    const last = mine.length ? mine[mine.length - 1] : null;
+    const fresh = last && live.actions[live.actions.length - 1] === last;
+    const shown = last && last.action === 'raise' ? last.total : (last || {}).amount;
+    const seatInfo = (s.seats || []).find((q) => q.name === p.name)
+      || seatKinds.find((q) => q.name === p.name) || {};
+    const avatar = p.avatar || seatInfo.avatar;
+    const avHtml = avatar ? `<img src="/avatars/${avatar}" class="seat-avatar" alt="${p.name}">` : '';
+    el.innerHTML = `${avHtml}<div class="who">${acting ? '<span class="turn-dot"></span>' : ''}${p.name}</div>
+      <div class="stack"><span class="pos">${p.position}</span> · ${bbs(p.stack)}</div>
+      ${last ? `<div class="act ${last.action}${fresh ? ' now' : ''}">`
+        + `${VERB[last.action] || last.action}`
+        + `${last.action === 'raise' ? ' to' : ''}`
+        + `${shown ? ' ' + bbs(shown) : ''}</div>`
+        : `<div class="kind">${(options && options.seat_labels || {})[kind] || kind}</div>`}`;
+    const cards = document.createElement('div');
+    cards.className = 'cards';
+    if (p.cards && p.cards.length) p.cards.forEach((c) => {
+      const cc = card(c, true);
+      if (winCards.has(c)) cc.classList.add('win');
+      cards.appendChild(cc);
+    });
+    else if (!p.folded) cards.innerHTML = '<div class="card small" style="background:#2b3a46"></div>'
+      + '<div class="card small" style="background:#2b3a46"></div>';
+    el.appendChild(cards);
+    felt.appendChild(el);
+
+    if (p.bet > 0) {                       // chips between the seat and the middle
+      const chips = document.createElement('div');
+      chips.className = 'chips';
+      chips.textContent = bbs(p.bet);
+      chips.style.left = (50 + rx * 0.58 * Math.cos(angle)) + '%';
+      chips.style.top = (50 + ry * 0.6 * Math.sin(angle)) + '%';
+      felt.appendChild(chips);
+    }
+    if (p.name === live.button) {
+      const d = document.createElement('div');
+      d.className = 'dealer';
+      d.textContent = 'D';
+      d.style.left = (50 + rx * 0.76 * Math.cos(angle + 0.3)) + '%';
+      d.style.top = (50 + ry * 0.76 * Math.sin(angle + 0.3)) + '%';
+      felt.appendChild(d);
+    }
+  });
+}
+
+/* ---- all-in: dealing out the streets, and the win ----
+   The server sends a finished hand all at once (board included) and attaches
+   the streets that arrived without any decisions as `runout`. Showing them one
+   at a time is the browser's job: if the server paused instead, everyone would
+   see a different part depending on when they asked for the state, and for
+   somebody the last card would never arrive at all. `RUNOUT_STAGE_MS` has to
+   match `RUNOUT_STAGE_S` in table_session.py — that is how long the table waits
+   before the next hand. */
+const RUNOUT_STAGE_MS = 1600;
+const shownRunouts = new Set();
+let runoutBusy = false;
+
+const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
+
+/* The pot travels from the middle of the table to the winner. */
+function flyChips(name, chips) {
+  const felt = $('t-felt');
+  const seat = felt.querySelector(`.seat[data-name="${CSS.escape(name)}"]`);
+  if (!seat) return;
+  const from = felt.getBoundingClientRect(), to = seat.getBoundingClientRect();
+  const fly = document.createElement('div');
+  fly.className = 'chipfly';
+  fly.textContent = '+' + bbs(chips) + unit();
+  fly.style.left = (from.left + from.width / 2) + 'px';
+  fly.style.top = (from.top + from.height / 2) + 'px';
+  document.body.appendChild(fly);
+  requestAnimationFrame(() => {
+    fly.style.transform = `translate(${to.left + to.width / 2 - from.left - from.width / 2}px,`
+      + `${to.top + to.height / 2 - from.top - from.height / 2}px)`;
+  });
+  setTimeout(() => { fly.style.opacity = '0'; }, 850);
+  setTimeout(() => fly.remove(), 1700);
+}
+
+async function playRunout(s, live) {
+  runoutBusy = true;
+  try {
+    const stages = live.runout || [];
+    // The board as of the last bet — the runout continues from there.
+    const start = Math.max(0, (stages[0].board || []).length
+      - (stages[0].street === 'flop' ? 3 : 1));
+    // The cards are face up (an all-in is played open), but neither the result
+    // nor the winning five is shown — else waiting for the river would be moot.
+    let view = { ...live, finished: false, acting: null, nets: {},
+                 board: (live.board || []).slice(0, start) };
+    renderLiveTable({ ...s, live: view }, view);
+    renderHandLog(view, s.viewer);
+    $('t-result').classList.add('hidden');
+    await sleep(500);
+    for (const stage of stages) {
+      view = { ...view, board: stage.board, street: stage.street,
+               runout_street: stage.street,
+               fresh_from: (stage.street === 'flop' ? 0 : stage.board.length - 1) };
+      renderLiveTable({ ...s, live: view }, view);
+      renderHandLog(view, s.viewer);
+      await sleep(RUNOUT_STAGE_MS);
+    }
+  } finally {
+    runoutBusy = false;
+  }
+  finishHandView(s, live);
+}
+
+/* A finished hand: the winning five, the winner, and the pot flying to
+   them. */
+function finishHandView(s, live) {
+  const view = { ...live, highlight_win: true };
+  renderLiveTable({ ...s, live: view }, view);
+  renderHandLog(view, s.viewer);
+  renderResult(view);
+  if (shownRunouts.has('pot:' + live.hand_id)) return;
+  shownRunouts.add('pot:' + live.hand_id);
+  (live.winners || []).forEach((name) => {
+    const net = (live.nets || {})[name];
+    flyChips(name, net > 0 ? net : live.pot);
+  });
+}
+
+/* A beep when it is your turn. Synthesised, not a file, so it works
+   offline. */
+let audioCtx = null, wasMyTurn = false;
+function beep() {
+  if (!$('t-sound').checked) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    osc.frequency.value = 880; gain.gain.value = 0.06;
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.12);
+  } catch (e) { /* sound is a bonus, not a requirement */ }
+}
+
+/* Internally everything counts in chips; a player sees the units of the blind
+   structure they chose. `chipScale` is how many chips make one unit (always 2,
+   so a half-blind step lands whole); `bigBlind` is the big blind IN CHIPS and
+   is only used for stepping. */
+let bigBlind = 2;
+let chipScale = 2;
+let blindsLabel = '0,5/1';
+const bb = (chips) => (Number(chips || 0) / chipScale);
+// "bb" is written only where the unit REALLY is one big blind, that is with
+// the default 0.5/1 structure. At a 2/5 table the unit is a game chip and
+// "12 bb" would lie — a pot of 12 is two and a half blinds.
+const unitLabel = () => (bigBlind === chipScale ? 'bb' : '');
+const unit = () => (unitLabel() ? ' ' + unitLabel() : '');
+const bbs = (chips) => {
+  const value = bb(chips);
+  return (Math.abs(value % 1) < 0.005 ? value.toFixed(0) : value.toFixed(1));
+};
+
+const STREET = { preflop: 'PREFLOP', flop: 'FLOP', turn: 'TURN', river: 'RIVER' };
+const VERB = { fold: 'fold', check: 'check', call: 'call', bet: 'bet', raise: 'raise' };
+// A bet or raise reports the street total ("raise to 3"); a call reports the amount due.
+const SHOWS_TOTAL = { bet: 1, raise: 1 };
+
+function renderHandLog(live, viewer) {
+  const box = $('t-handlog');
+  if (!live || !live.actions || !live.actions.length) { box.innerHTML = ''; return; }
+  const boards = { flop: 3, turn: 4, river: 5 };
+  let street = null;
+  const rows = [];
+  const kindOf = (name) => ((seatKinds.find((q) => q.name === name) || {}).kind);
+  for (const a of live.actions) {
+    if (a.street !== street) {
+      street = a.street;
+      const cards = (live.board || []).slice(0, boards[street] || 0);
+      rows.push(`<div class="log-street">${STREET[street] || street}
+        ${cards.map((c) => `<b>${c}</b>`).join(' ')}</div>`);
+    }
+    const shown = SHOWS_TOTAL[a.action] ? (a.total != null ? a.total : a.amount) : a.amount;
+    const amount = shown ? ` <b>${bbs(shown)}</b>` : '';
+    // "raise to 3", but simply "bet 3" — with a bet the amount due equals the total.
+    const verb = (VERB[a.action] || a.action) + (a.action === 'raise' ? ' to' : '');
+    // Why the seat played it, when it says. A seat that folds because its
+    // model is unreachable is flagged, so it does not just look like a nit.
+    const esc = (t) => String(t).replace(/[<>&]/g, (c) => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+    const why = a.reason
+      ? ` <span class="why-note" style="color:${a.failed ? 'var(--warn)' : 'var(--dim)'};font-size:11px">— ${esc(a.reason)}</span>`
+      : '';
+    rows.push(`<div class="log-act${a.player === viewer ? ' me' : ''}">
+      ${a.player} ${verb}${amount}${why}</div>`);
+  }
+  box.innerHTML = rows.join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderResult(live) {
+  const box = $('t-result');
+  if (!live || !live.finished) { box.classList.add('hidden'); return; }
+  const moves = Object.entries(live.nets || {}).filter(([, v]) => v)
+    .sort((a, b) => b[1] - a[1])
+    .map(([n, v]) => `<span class="${v > 0 ? 'win' : 'loss'}">${n} ${v > 0 ? '+' : ''}${bbs(v)}</span>`);
+  // The combination it was won with. In a showdown a list of cards gave no way
+  // to tell what anybody had — the one thing everyone at a table cares about.
+  const rows = live.showdown_hands || [];
+  const byName = {};
+  rows.forEach((r) => { byName[r.name] = r; });
+  const shown = live.seats.filter((p) => p.revealed && p.cards.length)
+    .map((p) => {
+      const r = byName[p.name];
+      return `<span class="${r && r.won ? 'win' : ''}">${p.name} ${p.cards.join(' ')}`
+        + (r ? ` — ${r.label}` : '') + '</span>';
+    });
+  const winners = (live.winners || []).filter(Boolean);
+  const head = winners.length
+    ? `<b class="win">${winners.join(' and ')}</b> ${winners.length > 1 ? 'split' : 'takes'} `
+      + `pot ${bbs(live.pot)}${unit()}`
+      + (byName[winners[0]] ? ` — <b>${byName[winners[0]].label}</b>` : '')
+    : 'konec handu';
+  box.classList.remove('hidden');
+  box.innerHTML = `${head} <span style="color:var(--dim)">·</span> `
+    + (moves.join(' &nbsp; ') || 'split, no change')
+    + (shown.length
+      ? `<div style="font-weight:400;color:var(--dim);font-size:12px">showdown: ${shown.join(' &nbsp;|&nbsp; ')}</div>`
+      : '');
+}
+
+/* ---- reviewing hands already played ---- */
+/* When it was last played. "20 minutes ago" says more than a date — for a
+   game you are coming back to, it is the main clue which one is which. */
+function ago(seconds) {
+  if (!seconds) return 'unknown';
+  const when = new Date(seconds * 1000);
+  const min = Math.round((Date.now() - when.getTime()) / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  if (min < 60 * 24) return `${Math.round(min / 60)}h ago`;
+  return when.toLocaleString('cs', { day: 'numeric', month: 'numeric',
+                                     hour: '2-digit', minute: '2-digit' });
+}
+
+/* Games in progress that can be resumed. */
+async function renderRuns() {
+  const rows = await (await fetch('/api/table/runs')).json();
+  const box = $('t-runs');
+  if (!rows.length) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div style="color:var(--dim);margin-bottom:3px">continue a game in progress:</div>'
+    + rows.slice(0, 8).map((r) => `<div class="hist" data-run="${r.label}">
+        <b>${r.label}</b> · ${r.hands_played} hands · ${ago(r.last_hand_at)}
+        <div style="color:var(--dim)">${r.seats.join(', ')}</div></div>`).join('');
+  box.querySelectorAll('[data-run]').forEach((el) => {
+    el.onclick = async () => {
+      clearTableView();
+      const res = await fetch('/api/table', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resume: el.dataset.run, hands: +$('t-hands').value,
+                               owner: ownerToken }),
+      });
+      if (!res.ok) { $('t-log').innerHTML = `<div class="loss">${await res.text()}</div>`; return; }
+      startPolling(); showSeatLinks();
+    };
+  });
+}
+
+async function renderHistory(viewer) {
+  const rows = await (await fetch('/api/table/history')).json();
+  const box = $('t-history');
+  // The list ALWAYS belongs to the running table only, hence its name in the
+  // heading, so hands are not confused with another game when switching runs.
+  $('t-history-of').textContent = tableLabel ? '· ' + tableLabel : '';
+  $('t-history-of').style.cssText = 'font-weight:400;font-size:12px;color:var(--dim)';
+  if (!rows.length) { box.innerHTML = '<div style="color:var(--dim)">no hands played yet</div>'; return; }
+  box.innerHTML = rows.map((h) => {
+    const moves = Object.entries(h.nets || {}).filter(([, v]) => v)
+      .sort((a, b) => b[1] - a[1])
+      .map(([n, v]) => `<span class="${v > 0 ? 'win' : 'loss'}">${n} ${v > 0 ? '+' : ''}${bbs(v)}</span>`)
+      .join(' ');
+    return `<div class="hist${reviewing === h.hand_id ? ' on' : ''}" data-h="${h.hand_id}">
+      <span style="color:var(--dim)">#${h.hand_id}</span> ${moves || 'no change'}</div>`;
+  }).join('');
+  box.querySelectorAll('[data-h]').forEach((el) => {
+    el.onclick = () => reviewHand(el.dataset.h, viewer);
+  });
+}
+
+async function reviewHand(handId, viewer, step) {
+  const url = `/api/table/hand/${encodeURIComponent(handId)}`
+    + (seatToken ? '?token=' + encodeURIComponent(seatToken) : '');
+  const res = await fetch(url);
+  if (!res.ok) return;
+  reviewHandData = await res.json();
+  reviewing = handId;
+  reviewViewer = viewer;
+  const total = (reviewHandData.actions || []).length;
+  reviewStep = step == null ? total : Math.max(0, Math.min(step, total));
+  drawReview();
+  renderHistory(viewer);
+}
+
+function exitReview() {
+  reviewing = null; reviewHandData = null;
+  $('t-review').classList.add('hidden');
+  // The table was not drawn while reviewing, so it has to be redrawn even when
+  // the state has not changed — otherwise the reviewed hand would stay put.
+  lastStateRaw = null;
+  tableState();
+}
+
+/* The table as of action number `reviewStep`. The last position is the
+   finished hand — the original snapshot, with the showdown and the result. */
+function reviewView() {
+  const hand = reviewHandData;
+  const total = (hand.actions || []).length;
+  const step = (hand.steps || [])[reviewStep];
+  // At the end of the stepping it is a finished hand — light the winning five here too.
+  if (reviewStep >= total || !step) return { ...hand, highlight_win: true };
+  const by = {};
+  step.seats.forEach((x) => { by[x.name] = x; });
+  return { ...hand,
+    street: step.street, board: step.board, pot: step.pot,
+    acting: step.acting, nets: {},
+    actions: hand.actions.slice(0, reviewStep),
+    seats: hand.seats.map((p) => ({ ...p, ...(by[p.name] || {}) })) };
+}
+
+function drawReview() {
+  const hand = reviewHandData, viewer = reviewViewer;
+  const total = (hand.actions || []).length;
+  const view = reviewView();
+  renderLiveTable({ viewer, seats: seatKinds, live: view }, view);
+  renderHandLog(view, viewer);
+  renderResult(reviewStep >= total ? hand : null);
+
+  const act = (hand.actions || [])[reviewStep];
+  const kindOf = (name) => ((seatKinds.find((q) => q.name === name) || {}).kind);
+  const now = act
+    ? `${STREET[act.street] || act.street} · <b>${act.player}</b>
+       ${(VERB[act.action] || act.action)}${act.action === 'raise' ? ' to' : ''}
+       ${act.amount || act.action === 'raise' ? bbs(act.action === 'raise' ? act.total : act.amount) : ''}`
+    : '<b>end of hand</b>';
+  $('t-review').classList.remove('hidden');
+  $('t-review').innerHTML = `
+    <div class="revline">
+      <b>hand #${hand.hand_id}</b>
+      <button id="t-rev-prev" ${reviewStep <= 0 ? 'disabled' : ''}>◀</button>
+      <input id="t-rev-slider" type="range" min="0" max="${total}" value="${reviewStep}">
+      <button id="t-rev-next" ${reviewStep >= total ? 'disabled' : ''}>▶</button>
+      <button id="t-rev-play">▶ replay</button>
+      <span style="color:var(--dim)">${reviewStep}/${total}</span>
+      <button id="t-rev-link" title="copy a link to this spot">🔗</button>
+      <button id="t-review-back">back to the game</button>
+    </div>
+    <div class="revline"><span class="revnow">${now}</span></div>`;
+  $('t-review-back').onclick = exitReview;
+  $('t-rev-link').onclick = (e) => {
+    const link = `${location.origin}/?hand=${encodeURIComponent(hand.hand_id)}`
+      + `&step=${reviewStep}#table`;
+    // Without HTTPS there is no clipboard API, so at least show the link to select.
+    if (navigator.clipboard) navigator.clipboard.write && navigator.clipboard.writeText(link);
+    e.target.outerHTML = `<input readonly value="${link}" style="width:260px"
+      onclick="this.select()">`;
+  };
+  $('t-rev-prev').onclick = () => gotoStep(reviewStep - 1);
+  $('t-rev-next').onclick = () => gotoStep(reviewStep + 1);
+  $('t-rev-slider').oninput = (e) => gotoStep(+e.target.value);
+  $('t-rev-play').onclick = playReview;
+}
+
+function gotoStep(step) {
+  if (!reviewHandData) return;
+  const total = (reviewHandData.actions || []).length;
+  reviewStep = Math.max(0, Math.min(step, total));
+  drawReview();
+}
+
+/* Play the rest of the hand automatically. A second click stops it. */
+let reviewTimer = null;
+function playReview() {
+  if (reviewTimer) { clearInterval(reviewTimer); reviewTimer = null; return; }
+  const total = (reviewHandData.actions || []).length;
+  if (reviewStep >= total) reviewStep = 0;
+  reviewTimer = setInterval(() => {
+    if (!reviewing || reviewStep >= total) {
+      clearInterval(reviewTimer); reviewTimer = null;
+      if (reviewing) drawReview();
+      return;
+    }
+    gotoStep(reviewStep + 1);
+  }, 900);
+  drawReview();
+}
+
+/* Arrow keys step through the hand being reviewed. */
+document.addEventListener('keydown', (e) => {
+  if (!reviewing) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'Escape') { exitReview(); e.preventDefault(); return; }
+  if (e.key === 'ArrowLeft') { gotoStep(reviewStep - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { gotoStep(reviewStep + 1); e.preventDefault(); }
+});
+
+$('t-pause').onclick = async () => {
+  const on = $('t-pause').classList.toggle('on');
+  await fetch('/api/table/pause', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ paused: on, token: seatToken }),
+  });
+  $('t-pause').textContent = on ? '⏸ Paused' : '⏸ Pause';
+  tableState();
+};
+$('t-next').onclick = async () => {
+  await fetch('/api/table/next', { method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: seatToken }) });
+  tableState();
+};
+
+/* Polling for state. This used to start **only** after clicking "New game",
+   so anyone arriving by a seat link, or reloading the page, saw a single
+   snapshot and got the next actions at the table only after a refresh. */
+let pollEvery = 1200;
+function startPolling(every) {
+  const wanted = every || 1200;
+  if (tablePoll && wanted === pollEvery) return;   // already running at the right pace
+  if (tablePoll) clearInterval(tablePoll);
+  pollEvery = wanted;
+  tablePoll = setInterval(tableState, wanted);
+  tableState();
+}
+
+function stopPolling() {
+  if (tablePoll) clearInterval(tablePoll);
+  tablePoll = null;
+}
+
+async function tableState() {
+  const url = '/api/table/state' + (seatToken ? '?token=' + encodeURIComponent(seatToken) : '');
+  const raw = await (await fetch(url)).text();
+  // While a bot thinks, the identical state arrives byte for byte every second.
+  // Redrawing the whole table for it means visible stutter on a phone at
+  // exactly the moment someone is aiming at a button. No change, no redraw.
+  if (raw === lastStateRaw) return;
+  // During an all-in runout the state is DISCARDED, not stored: remembered, the
+  // next hand would count as "already drawn" and the table would stay stuck on
+  // the finished one.
+  if (runoutBusy) return;
+  lastStateRaw = raw;
+  let s = JSON.parse(raw);
+  // A token belonging to nobody at this table is left over from a previous game.
+  // Kept, it would lock you out even at a table where you are the only person.
+  if (seatToken && s.running && !s.viewer) {
+    forgetStaleSeatToken();
+    s = await (await fetch('/api/table/state')).json();
+    showSeatLinks();
+  }
+  // `mine` says whether the question is mine. Someone else's arrives with no cards and no moves.
+  const wait = (s.waiting_for && s.waiting_for.mine) ? s.waiting_for : null;
+  bigBlind = s.big_blind || bigBlind;
+  chipScale = s.chip_scale || chipScale;
+  blindsLabel = s.blinds_label || blindsLabel;
+  if (s.seats && s.seats.length) seatKinds = s.seats;
+  lastViewer = s.viewer || lastViewer;
+  // The table's name has to arrive before the history — otherwise the first
+  // list would be drawn without saying which table it belongs to.
+  if (s.label !== undefined) tableLabel = s.label || '';
+  if (wait && !wasMyTurn) beep();
+  wasMyTurn = !!wait;
+  if (!reviewing && !runoutBusy) {
+    const live = s.live;
+    const runout = live && live.finished ? (live.runout || []) : [];
+    if (runout.length && !shownRunouts.has(live.hand_id)) {
+      // All-in: the cards come out one at a time and the table finishes the job.
+      // Until then the finished hand must not be drawn — it would spoil the river.
+      shownRunouts.add(live.hand_id);
+      playRunout(s, live);
+    } else if (live && live.finished) {
+      finishHandView(s, live);
+    } else {
+      renderLiveTable(s);
+      renderHandLog(s.live, s.viewer);
+      renderResult(s.live);
+    }
+  }
+  $('t-log').innerHTML = (s.seats || []).map((p) =>
+    `<div>${p.name} · ${p.kind} · <span class="${p.net_bb > 0 ? 'win' : p.net_bb < 0 ? 'loss' : ''}">${fmt(p.net_bb, 1)} bb</span>`
+    + `${p.cost_usd ? ' · $' + fmt(p.cost_usd, 4) : ''}${p.rebuys ? ' · rebuy ' + p.rebuys + '×' : ''}</div>`).join('');
+  renderHistory(s.viewer);
+  if (s.error) $('t-log').innerHTML = `<div class="loss">${s.error}</div>` + $('t-log').innerHTML;
+
+  const act = $('t-act');
+  // State is polled every second. The action bar cannot be redrawn that often:
+  // it would wipe the amount you are typing, or clicked out on the sizing
+  // buttons, and the field would snap back to the minimum raise. So it is
+  // redrawn only when a DIFFERENT question arrives — `asked_at` is new each time.
+  const askKey = wait ? String(wait.asked_at) : null;
+  const sameQuestion = askKey !== null && askKey === actKey;
+  actKey = askKey;
+  if (!sameQuestion) {
+  act.innerHTML = '';
+  if (wait) {
+    const style = { fold: 'danger', check: '', call: '', bet: 'primary', raise: 'primary' };
+    const LABEL = { fold: 'Fold', check: 'Check', call: 'Call', bet: 'Bet', raise: 'Raise' };
+    // The raise button shows the amount that will actually be played, not a range.
+    // "Raise 2–106" looked like a bug and, worse, said nothing about what a press
+    // would do; the ceiling is not the 100bb stack but the stack plus chips already in.
+    act.innerHTML = wait.options.map((o) => o.min !== undefined && o.min !== null
+      ? `<button class="${style[o.action]}" data-a="${o.action}" data-min="${o.min}" data-max="${o.max}">${LABEL[o.action]} to <span data-amt-label>${bbs(o.min)}</span></button>`
+      : `<button class="${style[o.action]}" data-a="${o.action}" data-amt="${o.amount || 0}">${LABEL[o.action]}${o.amount ? ' ' + bbs(o.amount) : ''}</button>`).join('')
+      ;
+    const raise = wait.options.find((o) => o.min != null);
+    if (raise) {
+      // Pot-based sizing: what my TOTAL for the street should come to.
+      const myBet = ((s.live && s.live.seats) || [])
+        .filter((p) => p.name === s.viewer).map((p) => p.bet)[0] || 0;
+      const potAfterCall = (wait.pot || 0) + (wait.to_call || 0);
+      // Rounded to a whole chip, or the slider (which steps in chips) drifts out of
+      // step with the field, which is in bb.
+      const target = (frac) => Math.min(raise.max, Math.max(raise.min,
+        Math.round(myBet + (wait.to_call || 0) + frac * potAfterCall)));
+      const quick = [['½ pot', 0.5], ['¾ pot', 0.75], ['pot', 1]]
+        .map(([label, frac]) => `<button data-set="${target(frac)}">${label}</button>`).join('')
+        + `<button data-set="${raise.max}">all-in</button>`;
+      // Steppers of 0.5 bb — as fine as the slider and the field.
+      // On mobile a slider is miserable to hit, and typing into the field means
+      // summoning a keyboard over half the screen; by thumb this is the only way.
+      act.innerHTML += `<div class="raisebar">
+        <input id="t-slider" type="range" min="${raise.min}" max="${raise.max}"
+               step="${bigBlind / 2}" value="${raise.min}">
+        <button class="step" data-step="-1" aria-label="half a blind less">−</button>
+        <input id="t-amt" type="number" step="${bigBlind / chipScale / 2}"
+               inputmode="decimal"
+               style="width:78px" value="${bbs(raise.min)}"><span class="unit">${unitLabel()}</span>
+        <button class="step" data-step="1" aria-label="half a blind more">+</button>
+        ${quick}</div>`;
+      const slider = $('t-slider'), field = $('t-amt');
+      // The button label has to follow the amount — from here on the bar does not
+      // redraw itself until a new question arrives.
+      const label = act.querySelector('[data-amt-label]');
+      const sync = (chips) => {
+        const clamped = Math.min(raise.max, Math.max(raise.min, Math.round(chips)));
+        slider.value = clamped;
+        field.value = bbs(clamped);
+        if (label) label.textContent = bbs(clamped);
+      };
+      // The slider is in chips, the field in bb — they are kept in step.
+      slider.oninput = () => sync(+slider.value);
+      // While typing the value is not clamped, or the "1" of "12" would jump
+      // straight to the minimum and the second digit could never be typed.
+      field.oninput = () => {
+        const chips = (+field.value || 0) * chipScale;
+        slider.value = Math.round(chips);
+        if (label) label.textContent = field.value || bbs(raise.min);
+      };
+      field.onchange = () => sync((+field.value || 0) * chipScale);
+      act.querySelectorAll('[data-set]').forEach((b) => {
+        b.onclick = (e) => { e.stopPropagation(); sync(+b.dataset.set); };
+      });
+      // The step is computed from the field, not the slider: while typing the
+      // slider stays unrounded and the value would jump on the next press.
+      act.querySelectorAll('[data-step]').forEach((b) => {
+        b.onclick = (e) => {
+          e.stopPropagation();
+          const now = (+field.value || 0) * chipScale;
+          sync(now + (+b.dataset.step) * (bigBlind / 2));
+        };
+      });
+    }
+    act.querySelectorAll('button[data-a]').forEach((b) => {
+      b.onclick = async () => {
+        // The field is in bb, the server wants chips. Clamping to the legal range
+        // happens here too, so what is sent matches what the button said.
+        const typed = +(($('t-amt') || {}).value || 0);
+        const amount = b.dataset.min !== undefined
+          ? Math.min(+b.dataset.max, Math.max(+b.dataset.min,
+              Math.round(typed ? typed * chipScale : +b.dataset.min)))
+          : (+b.dataset.amt || 0);
+        b.disabled = true;
+        const res = await fetch('/api/table/act', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: b.dataset.a, amount, token: seatToken }),
+        });
+        if (!res.ok) {
+          // A rejected action has to be put back in play. The bar redraws only on a
+          // NEW question, so without this the buttons would stay greyed out and the
+          // table would wait for an action that cannot be entered.
+          b.disabled = false;
+          const why = await res.text();
+          $('t-status').textContent = 'the action was rejected: ' + why;
+          return;
+        }
+        tableState();
+      };
+    });
+  }
+  }
+  const turn = s.waiting_for && !s.waiting_for.mine ? ` · ${s.waiting_for.seat} is thinking` : '';
+  // Does the bot read the game's history? It is an input to the prompt, so it
+  // has to be visible — the same line-up with empty profiles plays differently.
+  const ex = s.exploits;
+  const exploits = ex
+    ? ` · reads: ${ex.players} profiles`
+      + (ex.from_history ? ` (${ex.from_history} hands from earlier sessions)` : ' (bez historie)')
+    : '';
+  $('t-status').textContent = `${s.hands_played}/${s.hands_target} hands · `
+    + `spent $${fmt(s.cost_usd, 4)}${turn}${exploits}`
+    + (s.paused ? ' · na pauze' : '')
+    + (s.viewer ? ` · you are ${s.viewer}` : '');
+  // "Your turn" belongs above the buttons, not only on the seat down on the
+  // table: on a phone the action bar is pinned low and the table is scrolled away.
+  $('t-status').classList.toggle('my-turn', !!wait);
+  if (wait) $('t-status').textContent = 'JSI NA TAHU · ' + $('t-status').textContent;
+  $('t-run').textContent = s.label ? 'game: ' + s.label : '';
+  if (s.live && s.live.finished) {
+    $('t-status').textContent += ' · click a bot to see how it decided';
+  }
+  // A spectator at a table with human seats has to see that they are missing a
+  // link, rather than silently getting no buttons.
+  const humans = (s.seats || []).filter((p) => p.kind === 'human').map((p) => p.name);
+  $('t-seatwarn').classList.toggle('hidden', !(s.running && !s.viewer && humans.length));
+  if (s.running && !s.viewer && humans.length) {
+    $('t-seatwarn').innerHTML = `You are watching, not playing — the people at this table are `
+      + `${humans.join(' a ')}. Open your own link from `
+      + `<b>Links for the other players</b> (or scan the QR code).`;
+  }
+  // With no table running it only slows down. It must not stop: a friend with
+  // the link open would never see a new game and would have to hit refresh.
+  startPolling(s.running ? 1200 : 4000);
+}
+
+$('t-load').onclick = loadPresetIntoEditor;   // so choosing does not wipe your edits
+// Quick buttons for the house line-ups — the preset name is all that differs.
+for (const [id, preset] of [['t-friends', 'friends'], ['t-friends4', 'friends4'], ['t-friends5', 'friends5']]) {
+  if (!$(id)) continue;
+  $(id).onclick = () => {
+    if (presets[preset]) $('preset').value = preset;
+    loadPresetIntoEditor();
+  };
+}
+for (const id of ['t-hands', 't-stack', 't-rebuy']) $(id).oninput = renderEditor;
+function clearTableView() {
+  $('t-felt').innerHTML = '<div class="middle"><div class="pot">dealing…</div></div>';
+  $('t-handlog').innerHTML = '';
+  $('t-result').classList.add('hidden');
+  $('t-act').innerHTML = '';
+  $('t-status').textContent = '';
+  wasMyTurn = false;
+  // The bar is gone, so it has to be redrawn even for the question still open.
+  actKey = null;
+  // The table is gone from the DOM — without this the state cache leaves it empty.
+  lastStateRaw = null;
+}
+
+$('t-start').onclick = async () => {
+  clearTableView();
+  const res = await fetch('/api/table', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ config: collectConfig(), hands: +$('t-hands').value,
+                           label: $('preset').value, owner: ownerToken }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    // A missing owner token is the one error a user can fix themselves — so offer
+    // them the field for it, not just a message.
+    $('t-log').innerHTML = `<div class="loss">${text}</div>` + (res.status === 403
+      ? `<div style="margin-top:6px">The owner token was printed by the server at startup.
+           <input id="t-owner" placeholder="paste a token" style="width:150px">
+           <button id="t-owner-save">save</button></div>` : '');
+    const save = $('t-owner-save');
+    if (save) save.onclick = () => {
+      ownerToken = ($('t-owner').value || '').trim();
+      try { localStorage.setItem('pf-owner', ownerToken); } catch (e) { /* never mind */ }
+      $('t-start').click();
+    };
+    return;
+  }
+  startPolling();
+  showSeatLinks();
+  renderRuns();
+};
+$('t-stop').onclick = async () => { await fetch('/api/table/stop', { method: 'POST' }); tableState(); };
+
+/* Full screen for playing. On mobile this is the difference between "usable"
+   and "not": the header and the settings column go, and the table gets
+   everything. The native fullscreen API is tried, but iOS Safari does not have
+   it on an ordinary element — so the state is also held in a class on `body`,
+   which works everywhere. */
+async function setFullscreen(on) {
+  document.body.classList.toggle('fullscreen', on);
+  syncAppHeight();
+  try {
+    if (on && document.documentElement.requestFullscreen) {
+      await document.documentElement.requestFullscreen();
+    } else if (!on && document.fullscreenElement) {
+      await document.exitFullscreen();
+    }
+  } catch (e) { /* without native fullscreen the class alone is enough */ }
+}
+$('t-full').onclick = () => setFullscreen(true);
+$('t-exit').onclick = () => setFullscreen(false);
+document.addEventListener('fullscreenchange', () => {
+  // Leaving by Esc or a gesture has to bring our own class back in line.
+  if (!document.fullscreenElement && document.body.classList.contains('fullscreen')) {
+    document.body.classList.remove('fullscreen');
+    syncAppHeight();
+  }
+});
+
+/* Table setup as a slide-over panel (on mobile; the desktop has a column). */
+function toggleSide(open) {
+  const on = open === undefined
+    ? !document.body.classList.contains('side-open') : open;
+  document.body.classList.toggle('side-open', on);
+}
+$('t-side').onclick = () => toggleSide();
+$('side-close').onclick = () => toggleSide(false);
+
+/* The window's real visible height. On mobile `100vh` counts the area under
+   the browser bars too, so the table "does not fit" when it should; `dvh` needs
+   a newer Safari. visualViewport gives the exact figure everywhere and
+   recalculates when a bar slides out, the phone rotates, or the keyboard
+   appears. */
+function syncAppHeight() {
+  const vv = window.visualViewport;
+  const h = vv ? vv.height : window.innerHeight;
+  document.documentElement.style.setProperty('--app-h', Math.round(h) + 'px');
+  fitFelt();
+}
+/* On a phone the table's size is worked out by hand: it has to fit the height
+   left over AND the width, and keep its shape. CSS alone cannot do it —
+   `aspect-ratio` can be constrained in one direction only, and in the other the
+   table overflows (and the page with it, so even the header slides). In
+   landscape the table is a wide ellipse, in portrait nearly a circle; otherwise
+   a strip is left at the sides that nobody uses. */
+function fitFelt() {
+  const felt = $('t-felt');
+  const wrap = felt && felt.parentElement;
+  if (!wrap) return;
+  if (!document.body.classList.contains('tab-table') || window.innerWidth > 900) {
+    felt.style.width = felt.style.height = '';
+    return;
+  }
+  const availW = wrap.clientWidth, availH = wrap.clientHeight;
+  if (availW < 40 || availH < 40) return;
+  // The shape follows the window smoothly (from a circle to a wide ellipse), so
+  // no empty strip is left around the table in either orientation.
+  const ratio = Math.min(16 / 9, Math.max(1, availW / availH));
+  const w = Math.min(availW, availH * ratio);
+  felt.style.width = Math.floor(w) + 'px';
+  felt.style.height = Math.floor(w / ratio) + 'px';
+}
+syncAppHeight();
+/* The bottom action bar changes height with what can be played (a sizing
+   slider appears). The table has to follow, or it overflows by exactly that
+   much — so we observe the table's wrapper directly. No feedback loop: we
+   resize the table inside it, not the wrapper. */
+if (window.ResizeObserver) {
+  const wrap = $('t-felt') && $('t-felt').parentElement;
+  if (wrap) new ResizeObserver(() => fitFelt()).observe(wrap);
+}
+window.addEventListener('resize', syncAppHeight);
+window.addEventListener('orientationchange', () => setTimeout(syncAppHeight, 250));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', syncAppHeight);
+  window.visualViewport.addEventListener('scroll', syncAppHeight);
+}
+
+/* The browser bars top and bottom cannot be hidden from a page — on iOS only
+   the home-screen mode can. Mentioned once; dismiss it and it stays gone. */
+function maybeOfferA2HS() {
+  const standalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+  let dismissed = false;
+  try { dismissed = localStorage.getItem('pf-a2hs') === 'off'; } catch (e) {}
+  if (standalone || dismissed || window.innerWidth > 900) return;
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const box = document.createElement('div');
+  box.id = 'a2hs';
+  box.innerHTML = '<span></span><button>Got it</button>';
+  box.firstChild.textContent = ios
+    ? 'Tip: Share → "Add to Home Screen". It opens without browser chrome and the table gets the whole screen.'
+    : 'Tip: browser menu → "Add to Home Screen". It opens without chrome and the table gets the whole screen.';
+  box.querySelector('button').onclick = () => {
+    try { localStorage.setItem('pf-a2hs', 'off'); } catch (e) {}
+    box.remove();
+  };
+  document.body.appendChild(box);
+}
+
+/* The page is the table and nothing else. Seat links have to load here too,
+   not only after "New game": after a reload at a running table they would
+   otherwise vanish, and there would be nowhere to get the address for a friend
+   who turned up later. */
+function openTable() {
+  document.body.classList.add('tab-table');
+  loadPresets(); renderRuns(); showSeatLinks(); startPolling();
+  syncAppHeight();
+  maybeOfferA2HS();
+}
+/* Three steps rather than a switch: dark → dim → light. The choice survives a
+   reload, or on a phone you would set it again after every load. */
+const THEMES = ['dark', 'dim', 'light'];
+const THEME_ICON = { dark: '◐', dim: '◑', light: '◯' };
+function currentTheme() {
+  const root = document.documentElement;
+  return root.classList.contains('light') ? 'light'
+    : root.classList.contains('dim') ? 'dim' : 'dark';
+}
+
+function applyTheme(name) {
+  const t = THEMES.includes(name) ? name : 'dark';
+  document.documentElement.classList.toggle('dim', t === 'dim');
+  document.documentElement.classList.toggle('light', t === 'light');
+  $('theme').textContent = THEME_ICON[t];
+  $('theme').title = 'theme: ' + t;
+  // So the browser bar / status bar matches the background and adds no strip.
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = { dark: '#0e1116', dim: '#2a3038', light: '#f5f7fa' }[t];
+  try { localStorage.setItem('pf-theme', t); } catch (e) { /* private mode */ }
+}
+$('theme').onclick = () => {
+  // The state is read from the DOM, not localStorage — in private mode the save
+  // would fail and the button would keep toggling the same thing forever.
+  applyTheme(THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length]);
+};
+try { applyTheme(localStorage.getItem('pf-theme') || 'dark'); } catch (e) {}
+
+openTable();
+
+/* `?hand=<id>&step=<n>` opens a specific spot straight away — a link to a
+   moment in a hand can be passed on. The table state has to arrive first so the
+   seat kinds are known; without them nobody can be clicked. */
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const handId = params.get('hand');
+  if (!handId) return;
+  await tableState();
+  const step = params.get('step');
+  reviewHand(handId, reviewViewer || lastViewer, step == null ? null : +step);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>pokerarena — a poker table you can actually sit at</title>
+<meta name="description" content="Deal, bet, show down — with friends in a browser, with bots in process, or both at the same table. The built-in opponent needs no API key.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://frla18cz.github.io/poker-arena/">
+<meta property="og:title" content="pokerarena — a poker table you can actually sit at">
+<meta property="og:description" content="Friends join by link or QR code. The built-in bot needs no key and no model. Solver seats play real equity.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="pokerarena — a poker table you can actually sit at">
+<meta name="twitter:description" content="Friends join by link or QR code. The built-in bot needs no key and no model. Solver seats play real equity.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+<h1>pokerarena</h1>
+<p class="tag">A poker table you can actually sit at.</p>
+<nav class="nav">
+  <a href="https://github.com/frla18cz/poker-arena">Repository</a>
+  <a href="#start">Start</a>
+  <a href="#friends">Play with friends</a>
+  <a href="#seats">Who else is at the table</a>
+  <a href="https://github.com/frla18cz/poker-solver">The maths behind it</a>
+</nav>
+
+<p><img src="table.gif" alt="A table of built-in bots playing itself: betting, showdown, and the winning five outlined" style="width:100%;border-radius:10px;border:1px solid var(--line)"></p>
+
+<p>Deal, bet, show down — with friends in a browser, with bots in process, or
+both at the same table. Nothing to configure to get started: the built-in
+opponent needs no API key and no model download.</p>
+
+<h2 id="start">Start a table</h2>
+<pre><code>git clone https://github.com/frla18cz/poker-arena
+cd poker-arena
+pip install -e '.[dev]'
+poker-arena                      # open http://127.0.0.1:8771</code></pre>
+<p class="dim">Requires Python 3.14+.</p>
+
+<h2 id="friends">Playing with other people</h2>
+<p>Seats are handed out as links. Open the table panel and every human seat has
+a URL and a QR code beside it — send one to each friend.</p>
+<pre><code>poker-arena --lan                                       # everyone on your Wi-Fi
+poker-arena --public-base https://your-tunnel.example   # over the internet</code></pre>
+<p><strong>A seat link is a chair at the table:</strong> whoever holds it plays
+that seat and sees its cards. There are no accounts and no passwords — the link
+<em>is</em> the credential, so share them the way you would hand someone a seat
+in your living room.</p>
+
+<h2 id="seats">Who else is at the table</h2>
+<table>
+<tr><th>Seat kind</th><th>What it is</th></tr>
+<tr><td><code>human</code></td><td>waits for a person to click</td></tr>
+<tr><td><code>heuristic</code></td><td>built-in bot: pot odds against a rough read of its own hand. No key, no model.</td></tr>
+<tr><td><code>solver</code></td><td>Monte Carlo equity from <a href="https://github.com/frla18cz/poker-solver">pokersolver</a>. No key either — it pays in time.</td></tr>
+<tr><td><code>llm</code></td><td>a language model you point it at, with your own key</td></tr>
+</table>
+<p>Anything else plugs in through the registry — the arena never needs to know
+what is behind a seat, only that it can decide:</p>
+<pre><code>from pokerarena.engine.seat_registry import register
+
+register("my_bot", lambda build: MyStrategy())</code></pre>
+<p>That is also how a private bot joins a public table without shipping any of
+its code here.</p>
+
+<h2>Language-model seats</h2>
+<p>Bring your own key. The arena does not ship a model and does not proxy
+anyone’s traffic — one prompt per decision, straight from your machine to
+whatever provider you already pay for. To keep it local, run Ollama or LM Studio
+and point <code>ARENA_LLM_API_BASE</code> at it; then no key is needed and
+nothing leaves the machine.</p>
+
+<h2>What it is not</h2>
+<ul>
+<li>Not a poker site. No money, no accounts, no chips that mean anything.</li>
+<li>Not a training tool — no hand database, no leak finding.</li>
+<li>The built-in bot is deliberately simple and beatable. For a hard opponent,
+use a <code>solver</code> seat.</li>
+<li>LLM seats are only as good as the model behind them. The arena gives a model
+a chair and a legal move list; it does not make it play well.</li>
+</ul>
+
+<footer>
+MIT licence · <a href="https://github.com/frla18cz/poker-arena">github.com/frla18cz/poker-arena</a>
+</footer>
+
+</div>
+</body>
+</html>

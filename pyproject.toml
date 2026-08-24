@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pokerarena"
+version = "0.1.0"
+description = "A poker table you can sit at: friends over the network, bots in process"
+readme = "README.md"
+requires-python = ">=3.14"
+license = "MIT"
+license-files = ["LICENSE"]
+# The table itself is stdlib-only. Dealing needs pokerkit; LLM seats need
+# litellm — both optional, so `pip install pokerarena` stays small.
+dependencies = []
+
+[project.optional-dependencies]
+play = ["pokerkit>=0.5"]
+llm = ["litellm>=1.60", "python-dotenv>=1.0"]
+# pokersolver is not on PyPI yet, so this points at the repo. Swap it for a
+# plain version once it is published.
+solver = ["pokersolver @ git+https://github.com/frla18cz/poker-solver"]
+dev = ["pokerkit>=0.5", "pytest>=8.0",
+       "pokersolver @ git+https://github.com/frla18cz/poker-solver"]
+
+[project.scripts]
+poker-arena = "pokerarena.server.host:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"pokerarena.server" = ["*.html"]
+"pokerarena.assets" = ["avatars/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

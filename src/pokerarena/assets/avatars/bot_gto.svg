@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="gtoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f2027"/>
+      <stop offset="50%" stop-color="#203a43"/>
+      <stop offset="100%" stop-color="#2c5364"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe"/>
+      <stop offset="100%" stop-color="#4facfe"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="50" fill="url(#gtoGrad)"/>
+  <rect x="25" y="25" width="50" height="50" rx="10" stroke="url(#accentGrad)" stroke-width="3" fill="none" opacity="0.8"/>
+  <path d="M35 50 L45 60 L65 40" stroke="url(#accentGrad)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <text x="50" y="85" text-anchor="middle" fill="#00f2fe" font-family="sans-serif" font-size="10" font-weight="bold">GTO</text>
+</svg>
